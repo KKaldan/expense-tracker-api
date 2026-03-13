@@ -9,6 +9,26 @@ async function register(req, res) {
   });
 }
 
+async function login(req, res) {
+  const result = await authService.loginUser(req.body);
+
+  res.json({
+    success: true,
+    data: result
+  });
+}
+
+async function me(req, res) {
+
+  res.json({
+    success: true,
+    data: req.user
+  });
+
+}
+
 module.exports = {
-  register
+  register,
+  login,
+  me
 };
