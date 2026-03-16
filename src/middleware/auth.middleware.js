@@ -1,35 +1,24 @@
 const jwt = require("jsonwebtoken");
+const AppError = require("../utils/AppError");
+const { JWT_SECRET } = require("../config/env");
 
-function authenticate(req, res, next) {
+function authenticate(req, _res, next) {
 
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
-    return res.status(401).json({
-      success: false,
-      message: "No token provided"
-    });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next(AppError.unauthorized("No token provided"));
   }
 
   const token = authHeader.split(" ")[1];
 
   try {
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    req.user = decoded;
-
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-
-  } catch (error) {
-
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token"
-    });
-
+  } catch (err) {
+    // JsonWebTokenError and TokenExpiredError are handled by the central errorHandler
+    next(err);
   }
-
 }
 
 module.exports = authenticate;

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 
 const authRepository = require("./auth.repository");
 const AppError = require("../../utils/AppError");
+const { JWT_SECRET, JWT_EXPIRY } = require("../../config/env");
 
 async function registerUser({ email, name, password }) {
 
@@ -39,8 +40,8 @@ async function loginUser({ email, password }) {
 
   const token = jwt.sign(
     { userId: user.id },
-    process.env.JWT_SECRET,
-    { expiresIn: "1h" }
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRY }
   );
 
   return {
