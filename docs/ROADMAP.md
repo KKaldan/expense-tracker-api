@@ -1,114 +1,59 @@
 # Development Roadmap
 
-This roadmap outlines the planned development stages for the expense tracker backend.
+---
+
+## Week 1 — Foundation ✅
+
+- Project scaffold: Express server, PostgreSQL connection, environment config
+- Auth module: register, login, JWT middleware, `GET /auth/me`
+- Expenses module: create, list, delete
+- Layered architecture: Routes → Controllers → Services → Repositories
+- Database migrations: users, refresh_tokens, categories (with system defaults), expenses, budgets
+- Error handling: `AppError` class, `asyncHandler` utility
 
 ---
 
-# Week 1 (Completed)
+## Week 2 — API Hardening ✅
 
-Project setup
-
-Node.js backend initialization
-
-Express server configuration
-
-PostgreSQL database connection
-
-Authentication system
-
-User registration
-
-User login
-
-JWT authentication middleware
-
-Protected routes
-
-Expense module
-
-Create expense  
-List expenses  
-Delete expense  
-
-Basic database schema
-
-Layered architecture implemented
+- `PATCH /expenses/:id` — partial update with ownership check
+- `GET /expenses/:id` — single expense fetch
+- `GET /expenses` — pagination, date range filter, category filter, multi-column sort
+- Zod validation on all write endpoints and query parameters
+- `validate` middleware factory (supports `body` and `query` sources)
+- Central `errorHandler` middleware (AppError, Zod, JWT, pg errors, unexpected bugs)
+- 404 handler for unmatched routes
+- `asyncHandler` wired into all routes
+- `env.js` — validated environment config, single source of truth for all `process.env` access
+- Startup checks: env validation, database connection test
+- Graceful shutdown: drains pg pool on `SIGTERM`/`SIGINT`
 
 ---
 
-# Week 2
+## Week 3 — Categories & Budgets
 
-API improvements
-
-Add expense editing
-
-PUT /expenses/:id
-
-Add pagination
-
-GET /expenses?page=1&limit=10
-
-Add filtering
-
-Filter by category  
-Filter by date range
-
-Add request validation
-
-Use Zod for schema validation
-
-Improve error handling
+- Categories module: list (system + user), create, update, delete custom categories
+- Budgets module: create, list, update, delete
+- Budget check hook in expense service: warns on create/update if a budget is exceeded
+- Response envelope includes `budget_status: ok | warning | exceeded`
 
 ---
 
-# Week 3
+## Week 4 — Reports & Analytics
 
-Financial management features
-
-Categories system
-
-Create categories  
-Assign expenses to categories
-
-Budget system
-
-Monthly budgets  
-Budget tracking
-
-Budget vs spending calculations
+- `GET /reports/summary` — total spend, count, daily average for a date range
+- `GET /reports/by-category` — spend and percentage share per category
+- `GET /reports/monthly-trend` — month-by-month totals with configurable lookback window
+- All report queries use single-pass SQL aggregation (no N+1 patterns)
 
 ---
 
-# Week 4
+## Future
 
-Analytics and reporting
-
-Monthly spending reports
-
-Category spending breakdown
-
-Daily spending trends
-
-Aggregation queries in PostgreSQL
-
-Dashboard-ready endpoints
-
----
-
-# Future Improvements
-
-Frontend dashboard
-
-React-based user interface
-
-Charts and visualizations
-
-Deployment
-
-Docker containerization
-
-Cloud hosting
-
-CI/CD pipeline
-
-Automated testing
+- Test suite: Jest unit tests for all services, Supertest integration tests for all endpoints
+- Rate limiting on auth endpoints (`express-rate-limit`)
+- Security headers (`helmet`)
+- CORS configuration
+- Refresh token rotation (`POST /auth/refresh`, `POST /auth/logout`)
+- Docker containerisation
+- CI/CD pipeline
+- Frontend dashboard (React)
