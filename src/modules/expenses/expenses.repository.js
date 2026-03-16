@@ -1,14 +1,14 @@
 const db = require("../../config/db");
 
-async function createExpense({ userId, amount, description, category }) {
+async function createExpense({ userId, amount, currency, description, categoryId, date }) {
 
   const result = await db.query(
     `
-    INSERT INTO expenses (user_id, amount, description, category)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO expenses (owner_id, amount, currency, description, category_id, date)
+    VALUES ($1, $2, $3, $4, $5, $6)
     RETURNING *
     `,
-    [userId, amount, description, category]
+    [userId, amount, currency ?? 'GBP', description, categoryId ?? null, date]
   );
 
   return result.rows[0];
@@ -19,8 +19,8 @@ async function getExpensesByUser(userId) {
   const result = await db.query(
     `
     SELECT * FROM expenses
-    WHERE user_id = $1
-    ORDER BY created_at DESC
+    WHERE owner_id = $1
+    ORDER BY date DESC, created_at DESC
     `,
     [userId]
   );
@@ -33,7 +33,7 @@ async function deleteExpense(userId, expenseId) {
   await db.query(
     `
     DELETE FROM expenses
-    WHERE id = $1 AND user_id = $2
+    WHERE id = $1 AND owner_id = $2
     `,
     [expenseId, userId]
   );
