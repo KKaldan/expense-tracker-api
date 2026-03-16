@@ -137,7 +137,7 @@ describe("POST /api/v1/auth/login", () => {
 
 describe("GET /api/v1/auth/me", () => {
 
-  it("returns 200 with user payload for a valid token", async () => {
+  it("returns 200 with the user's profile for a valid token", async () => {
     const token = await getToken();
     const res = await request(app)
       .get("/api/v1/auth/me")
@@ -145,7 +145,11 @@ describe("GET /api/v1/auth/me", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.userId).toBeDefined();
+    expect(res.body.data.id).toBeDefined();
+    expect(res.body.data.email).toBe(DEFAULT_USER.email);
+    expect(res.body.data.name).toBe(DEFAULT_USER.name);
+    expect(res.body.data.created_at).toBeDefined();
+    expect(res.body.data.password).toBeUndefined();
   });
 
   it("returns 401 when no token is provided", async () => {

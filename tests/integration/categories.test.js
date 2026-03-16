@@ -193,7 +193,7 @@ describe("PATCH /api/v1/categories/:id", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when attempting to modify another user's category", async () => {
+  it("returns 404 when attempting to modify another user's category", async () => {
     const otherToken = await getToken({ email: "other@example.com" });
     const otherRes = await request(app)
       .post(BASE)
@@ -206,7 +206,7 @@ describe("PATCH /api/v1/categories/:id", () => {
       .set("Authorization", `Bearer ${token}`)
       .send({ name: "Stolen" });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 404 for a non-existent category", async () => {
@@ -295,7 +295,7 @@ describe("DELETE /api/v1/categories/:id", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when attempting to delete another user's category", async () => {
+  it("returns 404 when attempting to delete another user's category", async () => {
     const otherToken = await getToken({ email: "other@example.com" });
     const otherRes = await request(app)
       .post(BASE)
@@ -307,7 +307,7 @@ describe("DELETE /api/v1/categories/:id", () => {
       .delete(`${BASE}/${otherId}`)
       .set("Authorization", `Bearer ${token}`);
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it("returns 404 for a non-existent category", async () => {

@@ -10,7 +10,7 @@ async function registerUser({ email, name, password }) {
   const existingUser = await authRepository.findUserByEmail(email);
 
   if (existingUser) {
-    throw new AppError("Email already in use", 409);
+    throw AppError.conflict("Email already in use");
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
@@ -29,13 +29,13 @@ async function loginUser({ email, password }) {
   const user = await authRepository.findUserByEmail(email);
 
   if (!user) {
-    throw new AppError("Invalid email or password", 401);
+    throw AppError.unauthorized("Invalid email or password");
   }
 
   const passwordMatch = await bcrypt.compare(password, user.password);
 
   if (!passwordMatch) {
-    throw new AppError("Invalid email or password", 401);
+    throw AppError.unauthorized("Invalid email or password");
   }
 
   const token = jwt.sign(
@@ -54,7 +54,18 @@ async function loginUser({ email, password }) {
   };
 }
 
+async function getMe(userId) {
+  const user = await authRepository.findUserById(userId);
+
+  if (!user) {
+    throw AppError.notFound("User not found");
+  }
+
+  return user;
+}
+
 module.exports = {
   registerUser,
-  loginUser
+  loginUser,
+  getMe,
 };

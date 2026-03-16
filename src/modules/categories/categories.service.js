@@ -22,7 +22,7 @@ async function updateCategory(userId, categoryId, updates) {
   }
 
   if (category.owner_id !== userId) {
-    throw AppError.forbidden("You do not own this category");
+    throw AppError.notFound("Category not found");
   }
 
   return categoriesRepository.updateCategory(categoryId, updates);
@@ -40,7 +40,7 @@ async function deleteCategory(userId, categoryId) {
   }
 
   if (category.owner_id !== userId) {
-    throw AppError.forbidden("You do not own this category");
+    throw AppError.notFound("Category not found");
   }
 
   await categoriesRepository.deleteCategory(categoryId);

@@ -19,12 +19,12 @@ async function login(req, res) {
 }
 
 async function me(req, res) {
+  const user = await authService.getMe(req.user.userId);
 
   res.json({
     success: true,
-    data: req.user
+    data: user,
   });
-
 }
 
 module.exports = {
