@@ -1,4 +1,5 @@
 const expensesService = require("./expenses.service");
+const { listExpensesQuerySchema } = require("./expenses.schema");
 
 async function createExpense(req, res) {
 
@@ -22,7 +23,8 @@ async function getExpense(req, res) {
 
 async function getExpenses(req, res) {
 
-  const { expenses, meta } = await expensesService.getExpenses(req.user.userId, req.query);
+  const filters = listExpensesQuerySchema.parse(req.query);
+  const { expenses, meta } = await expensesService.getExpenses(req.user.userId, filters);
 
   res.json({
     success: true,
