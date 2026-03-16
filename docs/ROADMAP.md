@@ -29,12 +29,15 @@
 
 ---
 
-## Week 3 — Categories & Budgets
+## Week 3 — Categories & Budgets ✅
 
 - Categories module: list (system + user), create, update, delete custom categories
+- System categories (owner_id = NULL) are read-only for all users
 - Budgets module: create, list, update, delete
+- Unique constraint on (owner_id, category_id, period) via partial indexes to handle NULL category
 - Budget check hook in expense service: warns on create/update if a budget is exceeded
-- Response envelope includes `budget_status: ok | warning | exceeded`
+- Response envelope includes `budget_status: none | ok | warning | exceeded`
+- Integration tests: 90 tests across 4 suites (auth, expenses, categories, budgets)
 
 ---
 
@@ -49,7 +52,6 @@
 
 ## Future
 
-- Test suite: Jest unit tests for all services, Supertest integration tests for all endpoints
 - Rate limiting on auth endpoints (`express-rate-limit`)
 - Security headers (`helmet`)
 - CORS configuration
