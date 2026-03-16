@@ -14,6 +14,7 @@ const MIGRATION_FILES = [
   "004_create_categories.sql",
   "005_create_expenses.sql",
   "006_create_budgets.sql",
+  "007_add_budgets_unique_constraints.sql",
 ];
 
 module.exports = async function globalSetup() {
