@@ -2,6 +2,7 @@ const express = require("express");
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./modules/auth/auth.routes");
 const expenseRoutes = require("./modules/expenses/expenses.routes");
+const categoryRoutes = require("./modules/categories/categories.routes");
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.get("/health", (req, res) => {
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/expenses", expenseRoutes);
+app.use("/api/v1/categories", categoryRoutes);
 
 // 404 handler — catches any request that didn't match a route above
 app.use((_req, res) => {

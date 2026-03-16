@@ -10,7 +10,10 @@ const db = require("../src/config/db");
  * System categories (owner_id = NULL) are unaffected.
  */
 async function truncateTables() {
-  await db.query("TRUNCATE TABLE users CASCADE");
+  // DELETE (not TRUNCATE) so that ON DELETE CASCADE only removes rows belonging
+  // to real users. TRUNCATE CASCADE would wipe the entire categories table,
+  // including system categories (owner_id = NULL).
+  await db.query("DELETE FROM users");
 }
 
 module.exports = { db, truncateTables };
