@@ -113,6 +113,58 @@ describe("POST /api/v1/expenses", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns budget_status 'none' when no budget exists", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send(VALID_EXPENSE);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.budget_status).toBe("none");
+  });
+
+  it("returns budget_status 'ok' when spend is under 80% of budget", async () => {
+    await request(app).post("/api/v1/budgets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 1000, period: "monthly" });
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 100 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.budget_status).toBe("ok");
+  });
+
+  it("returns budget_status 'warning' when spend is between 80-100% of budget", async () => {
+    await request(app).post("/api/v1/budgets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 100, period: "monthly" });
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 85 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.budget_status).toBe("warning");
+  });
+
+  it("returns budget_status 'exceeded' when spend is over budget", async () => {
+    await request(app).post("/api/v1/budgets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 50, period: "monthly" });
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 75 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.budget_status).toBe("exceeded");
+  });
+
 });
 
 // ---------------------------------------------------------------------------
@@ -265,7 +317,7 @@ describe("PATCH /api/v1/expenses/:id", () => {
     expenseId = res.body.data.id;
   });
 
-  it("returns 200 with updated fields", async () => {
+  it("returns 200 with updated fields and a budget_status", async () => {
     const res = await request(app)
       .patch(`${BASE}/${expenseId}`)
       .set("Authorization", `Bearer ${token}`)
@@ -274,6 +326,7 @@ describe("PATCH /api/v1/expenses/:id", () => {
     expect(res.status).toBe(200);
     expect(parseFloat(res.body.data.amount)).toBe(99.99);
     expect(res.body.data.description).toBe("Updated");
+    expect(res.body.data.budget_status).toBeDefined();
   });
 
   it("does not modify fields that were not sent", async () => {

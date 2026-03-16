@@ -60,10 +60,52 @@ async function deleteBudget(budgetId) {
   return rows[0] ?? null;
 }
 
+/**
+ * Finds the most specific budget that applies to an expense:
+ * category-specific budget takes priority over a global budget.
+ * Returns null if no budget covers this user/category/period combination.
+ */
+async function findApplicableBudget(userId, categoryId, period) {
+  const { rows } = await db.query(
+    `SELECT id, amount, period, category_id
+     FROM budgets
+     WHERE owner_id = $1
+       AND period = $2
+       AND (category_id = $3 OR category_id IS NULL)
+     ORDER BY category_id NULLS LAST
+     LIMIT 1`,
+    [userId, period, categoryId ?? null]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Returns the total amount spent by a user within a given date range,
+ * optionally scoped to a specific category (for category budgets)
+ * or across all categories (for global budgets).
+ */
+async function sumExpensesForPeriod(userId, { from, to, categoryId, isGlobal }) {
+  const params = [userId, from, to];
+  const categoryClause = isGlobal ? "" : `AND category_id = $${params.push(categoryId)}`;
+
+  const { rows } = await db.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total
+     FROM expenses
+     WHERE owner_id = $1
+       AND date >= $2
+       AND date <= $3
+       ${categoryClause}`,
+    params
+  );
+  return parseFloat(rows[0].total);
+}
+
 module.exports = {
   getBudgetsByUser,
   getBudgetById,
   createBudget,
   updateBudget,
   deleteBudget,
+  findApplicableBudget,
+  sumExpensesForPeriod,
 };

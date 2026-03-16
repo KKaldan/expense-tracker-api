@@ -1,10 +1,17 @@
 const expensesRepository = require("./expenses.repository");
 const AppError = require("../../utils/AppError");
+const { checkBudgetStatus } = require("../budgets/budgets.service");
 
 async function createExpense(userId, data) {
 
-  return await expensesRepository.createExpense({ userId, ...data });
+  const expense = await expensesRepository.createExpense({ userId, ...data });
 
+  const budget_status = await checkBudgetStatus(userId, {
+    category_id: expense.category_id,
+    date: expense.date,
+  });
+
+  return { ...expense, budget_status };
 }
 
 async function getExpenseById(userId, expenseId) {
@@ -37,7 +44,6 @@ async function getExpenses(userId, filters) {
 
 async function updateExpense(userId, expenseId, updates) {
 
-  // Verify the expense exists and is owned by this user before attempting update
   const existing = await expensesRepository.getExpenseById(expenseId, userId);
 
   if (!existing) {
@@ -46,7 +52,13 @@ async function updateExpense(userId, expenseId, updates) {
 
   const updated = await expensesRepository.updateExpense(expenseId, userId, updates);
 
-  return updated;
+  // Use updated values where provided, fall back to existing values for unchanged fields
+  const budget_status = await checkBudgetStatus(userId, {
+    category_id: updated.category_id,
+    date: updated.date,
+  });
+
+  return { ...updated, budget_status };
 }
 
 async function deleteExpense(userId, expenseId) {

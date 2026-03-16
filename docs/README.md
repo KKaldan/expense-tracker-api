@@ -1,6 +1,6 @@
 # Expense Tracker API
 
-A SaaS-style personal expense tracking backend built with Node.js, Express, and PostgreSQL. Demonstrates production-grade REST API architecture including JWT authentication, layered service design, Zod validation, and structured error handling.
+A SaaS-style personal expense tracking backend built with Node.js, Express, and PostgreSQL. Demonstrates production-grade REST API architecture including JWT authentication, layered service design, Zod validation, structured error handling, and a full integration test suite.
 
 ## Tech Stack
 
@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest *(planned)* |
+| Testing | Jest + Supertest (90 integration tests) |
 
 ## Prerequisites
 
@@ -60,6 +60,7 @@ psql postgresql://localhost:5432/expense_tracker -f migrations/003_create_refres
 psql postgresql://localhost:5432/expense_tracker -f migrations/004_create_categories.sql
 psql postgresql://localhost:5432/expense_tracker -f migrations/005_create_expenses.sql
 psql postgresql://localhost:5432/expense_tracker -f migrations/006_create_budgets.sql
+psql postgresql://localhost:5432/expense_tracker -f migrations/007_add_budgets_unique_constraints.sql
 ```
 
 **5. Start the server**
@@ -70,6 +71,20 @@ npm start     # production
 ```
 
 The server starts on `http://localhost:3000` by default.
+
+---
+
+## Running Tests
+
+The test suite runs integration tests against a real PostgreSQL test database. Migrations are applied automatically before the suite runs.
+
+```bash
+cp .env.test.example .env.test
+# Fill in your test database credentials (use a separate DB from development)
+
+npm test           # run all tests
+npm run test:watch # watch mode
+```
 
 ---
 
@@ -148,13 +163,18 @@ Authenticate and receive an access token.
 ---
 
 #### `GET /auth/me` *(auth required)*
-Return the authenticated user's profile.
+Return the authenticated user's profile from the database.
 
 **Response `200`:**
 ```json
 {
   "success": true,
-  "data": { "userId": "uuid", "iat": 1234567890, "exp": 1234568790 }
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "name": "Jane Smith",
+    "created_at": "2026-03-16T10:00:00Z"
+  }
 }
 ```
 
@@ -176,7 +196,14 @@ Create a new expense.
 }
 ```
 
-**Response `201`:** Returns the created expense object.
+**Response `201`:** Returns the created expense object including `budget_status`.
+
+| `budget_status` | Meaning |
+|---|---|
+| `none` | No budget covers this expense |
+| `ok` | Under 80% of the applicable budget |
+| `warning` | Between 80% and 100% of the budget |
+| `exceeded` | Over budget |
 
 ---
 
@@ -206,9 +233,7 @@ Paginated list with optional filters.
 ---
 
 #### `GET /expenses/:id` *(auth required)*
-Fetch a single expense by ID.
-
-**Response `200`:** Returns the expense object, or `404` if not found.
+Fetch a single expense by ID. Returns `404` if not found or not owned by the caller.
 
 ---
 
@@ -223,12 +248,115 @@ Partially update an expense. All fields optional; at least one required.
 }
 ```
 
-**Response `200`:** Returns the updated expense object.
+**Response `200`:** Returns the updated expense object including `budget_status`.
 
 ---
 
 #### `DELETE /expenses/:id` *(auth required)*
 Delete an expense. Returns `404` if not found.
+
+**Response `200`:**
+```json
+{ "success": true }
+```
+
+---
+
+### Categories
+
+#### `GET /categories` *(auth required)*
+List all categories available to the user: system defaults (visible to all) and their own custom categories.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "uuid", "owner_id": null, "name": "Food & Drink", "icon": "🍔", "color": "#E74C3C", ... },
+    { "id": "uuid", "owner_id": "user-uuid", "name": "My Category", "icon": null, "color": null, ... }
+  ]
+}
+```
+
+System categories have `owner_id: null`. User categories have `owner_id` set to the creator's ID.
+
+---
+
+#### `POST /categories` *(auth required)*
+Create a custom category.
+
+**Request body:**
+```json
+{
+  "name": "Hobbies",
+  "icon": "🎸",
+  "color": "#FF5733"
+}
+```
+
+`icon` and `color` are optional. `color` must be a valid hex code (e.g. `#FF5733`).
+
+**Response `201`:** Returns the created category object.
+
+---
+
+#### `PATCH /categories/:id` *(auth required)*
+Update a custom category. All fields optional; at least one required. Returns `403` for system categories, `404` for another user's categories.
+
+---
+
+#### `DELETE /categories/:id` *(auth required)*
+Delete a custom category. Any expenses referencing it will have their `category_id` set to `null`. Returns `403` for system categories.
+
+---
+
+### Budgets
+
+#### `GET /budgets` *(auth required)*
+List all budgets belonging to the authenticated user.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "uuid", "amount": "500.00", "period": "monthly", "category_id": null, ... },
+    { "id": "uuid", "amount": "200.00", "period": "monthly", "category_id": "uuid", ... }
+  ]
+}
+```
+
+A budget with `category_id: null` is a global budget covering all spending. A budget with a `category_id` applies only to that category.
+
+---
+
+#### `POST /budgets` *(auth required)*
+Create a budget.
+
+**Request body:**
+```json
+{
+  "amount": 500,
+  "period": "monthly",
+  "category_id": "uuid-or-omit"
+}
+```
+
+`period` must be `"monthly"` or `"yearly"`. Only one budget per user per category per period is allowed (returns `409` on duplicate).
+
+**Response `201`:** Returns the created budget object.
+
+---
+
+#### `PATCH /budgets/:id` *(auth required)*
+Update a budget. All fields optional; at least one required.
+
+**Response `200`:** Returns the updated budget object.
+
+---
+
+#### `DELETE /budgets/:id` *(auth required)*
+Delete a budget. Returns `404` if not found.
 
 **Response `200`:**
 ```json
@@ -243,35 +371,41 @@ Delete an expense. Returns `404` if not found.
 expense-tracker-api/
 ├── src/
 │   ├── config/
-│   │   ├── db.js            # PostgreSQL pool with startup connection check
-│   │   └── env.js           # Validated environment config — single source of truth
+│   │   ├── db.js               # PostgreSQL pool with startup connection check
+│   │   └── env.js              # Validated environment config — single source of truth
 │   ├── middleware/
 │   │   ├── auth.middleware.js  # JWT verification, sets req.user
 │   │   ├── errorHandler.js     # Central error handler (AppError, Zod, JWT, pg)
 │   │   └── validate.js         # Zod validation middleware factory
 │   ├── modules/
-│   │   ├── auth/            # register, login, me
-│   │   ├── expenses/        # Full CRUD with pagination and filtering
-│   │   ├── categories/      # Planned — Week 3
-│   │   ├── budgets/         # Planned — Week 3
-│   │   └── reports/         # Planned — Week 4
+│   │   ├── auth/               # register, login, me
+│   │   ├── expenses/           # Full CRUD with pagination, filtering, budget status
+│   │   ├── categories/         # System defaults + user custom categories
+│   │   ├── budgets/            # CRUD + budget check hook
+│   │   └── reports/            # Planned — Week 4
 │   └── utils/
-│       ├── AppError.js      # Custom operational error class
-│       └── asyncHandler.js  # Wraps async controllers to forward errors to Express
+│       ├── AppError.js         # Custom operational error class
+│       └── asyncHandler.js     # Wraps async controllers to forward errors to Express
 ├── migrations/
 │   ├── 001_enable_extensions.sql
 │   ├── 002_create_users.sql
 │   ├── 003_create_refresh_tokens.sql
-│   ├── 004_create_categories.sql   # Includes 10 system default categories
+│   ├── 004_create_categories.sql       # Includes 10 system default categories
 │   ├── 005_create_expenses.sql
-│   └── 006_create_budgets.sql
+│   ├── 006_create_budgets.sql
+│   └── 007_add_budgets_unique_constraints.sql
+├── tests/
+│   ├── integration/            # Jest + Supertest tests (90 tests across 4 suites)
+│   ├── helpers/                # Shared test utilities
+│   └── setup/                  # globalSetup — runs migrations before test suite
 ├── docs/
-│   ├── SPEC.md              # Full software specification
-│   ├── ARCHITECTURE.md      # Layer design and responsibilities
-│   ├── ROADMAP.md           # Development stages
-│   └── AI_CONTEXT.md        # AI development context
-├── server.js                # Entry point — listen, graceful shutdown
+│   ├── SPEC.md                 # Full software specification
+│   ├── ARCHITECTURE.md         # Layer design and responsibilities
+│   ├── ROADMAP.md              # Development stages
+│   └── AI_CONTEXT.md           # AI development context
+├── server.js                   # Entry point — listen, graceful shutdown
 ├── .env.example
+├── .env.test.example
 └── package.json
 ```
 
