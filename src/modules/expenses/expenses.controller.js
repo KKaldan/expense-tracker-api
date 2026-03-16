@@ -2,41 +2,62 @@ const expensesService = require("./expenses.service");
 
 async function createExpense(req, res) {
 
-  const expense = await expensesService.createExpense(
-    req.user.userId,
-    req.body
-  );
+  const expense = await expensesService.createExpense(req.user.userId, req.body);
 
   res.status(201).json({
     success: true,
-    data: expense
+    data: expense,
+  });
+}
+
+async function getExpense(req, res) {
+
+  const expense = await expensesService.getExpenseById(req.user.userId, req.params.id);
+
+  res.json({
+    success: true,
+    data: expense,
   });
 }
 
 async function getExpenses(req, res) {
 
-  const expenses = await expensesService.getExpenses(req.user.userId);
+  const { expenses, meta } = await expensesService.getExpenses(req.user.userId, req.query);
 
   res.json({
     success: true,
-    data: expenses
+    data: expenses,
+    meta,
+  });
+}
+
+async function updateExpense(req, res) {
+
+  const expense = await expensesService.updateExpense(
+    req.user.userId,
+    req.params.id,
+    req.body
+  );
+
+  res.json({
+    success: true,
+    data: expense,
   });
 }
 
 async function deleteExpense(req, res) {
 
-  await expensesService.deleteExpense(
-    req.user.userId,
-    req.params.id
-  );
+  await expensesService.deleteExpense(req.user.userId, req.params.id);
 
   res.json({
-    success: true
+    success: true,
   });
 }
 
 module.exports = {
   createExpense,
+  getExpense,
   getExpenses,
-  deleteExpense
+  updateExpense,
+  deleteExpense,
 };

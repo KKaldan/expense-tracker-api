@@ -27,4 +27,26 @@ const createExpenseSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be in YYYY-MM-DD format" }),
 });
 
-module.exports = { createExpenseSchema };
+// All fields optional for PATCH — at least one must be provided
+const updateExpenseSchema = createExpenseSchema.partial().refine(
+  (data) => Object.keys(data).length > 0,
+  { message: "At least one field must be provided" }
+);
+
+// Query parameters for GET /expenses
+const listExpensesQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "from must be in YYYY-MM-DD format" })
+    .optional(),
+  to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "to must be in YYYY-MM-DD format" })
+    .optional(),
+  category_id: z.string().uuid({ message: "category_id must be a valid UUID" }).optional(),
+  sort: z.string().optional(),
+});
+
+module.exports = { createExpenseSchema, updateExpenseSchema, listExpensesQuerySchema };
