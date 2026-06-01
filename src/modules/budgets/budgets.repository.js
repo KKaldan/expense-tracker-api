@@ -61,22 +61,23 @@ async function deleteBudget(budgetId) {
 }
 
 /**
- * Finds the most specific budget that applies to an expense:
- * category-specific budget takes priority over a global budget.
- * Returns null if no budget covers this user/category/period combination.
+ * Returns all budgets that apply to an expense for a given period:
+ * a category-specific budget (if one exists) and/or a global budget.
+ * Both are returned so the caller can evaluate each independently and
+ * surface the worst status — a global cap can be breached even when the
+ * category-specific budget is fine.
  */
-async function findApplicableBudget(userId, categoryId, period) {
+async function findApplicableBudgets(userId, categoryId, period) {
   const { rows } = await db.query(
     `SELECT id, amount, period, category_id
      FROM budgets
      WHERE owner_id = $1
        AND period = $2
        AND (category_id = $3 OR category_id IS NULL)
-     ORDER BY category_id NULLS LAST
-     LIMIT 1`,
+     ORDER BY category_id NULLS LAST`,
     [userId, period, categoryId ?? null]
   );
-  return rows[0] ?? null;
+  return rows;
 }
 
 /**
@@ -106,6 +107,6 @@ module.exports = {
   createBudget,
   updateBudget,
   deleteBudget,
-  findApplicableBudget,
+  findApplicableBudgets,
   sumExpensesForPeriod,
 };

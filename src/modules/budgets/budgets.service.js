@@ -40,13 +40,17 @@ async function deleteBudget(userId, budgetId) {
 /**
  * Checks whether an expense triggers a budget warning or breach.
  *
- * Looks for the most specific applicable budget (category-specific first,
- * then global). Calculates total spend for the budget's period window and
- * returns a status string:
- *   'none'     — no budget covers this expense
- *   'ok'       — under 80% of the budget
- *   'warning'  — between 80% and 100% of the budget
+ * For each period type (monthly, yearly), fetches ALL applicable budgets:
+ * a category-specific budget and/or a global budget. Each is evaluated
+ * independently and the worst status across all of them is returned.
+ * This ensures a global cap breach is surfaced even when the category
+ * budget is fine.
+ *
+ * Status values (worst-first):
  *   'exceeded' — over 100% of the budget
+ *   'warning'  — between 80% and 100% of the budget
+ *   'ok'       — under 80% of the budget
+ *   'none'     — no budget covers this expense
  *
  * @param {string} userId
  * @param {{ category_id?: string|null, date: string }} expenseData
@@ -61,8 +65,8 @@ async function checkBudgetStatus(userId, { category_id, date }) {
   let worstStatus = "none";
 
   for (const period of ["monthly", "yearly"]) {
-    const budget = await budgetsRepository.findApplicableBudget(userId, category_id ?? null, period);
-    if (!budget) continue;
+    const budgets = await budgetsRepository.findApplicableBudgets(userId, category_id ?? null, period);
+    if (budgets.length === 0) continue;
 
     let from, to;
     if (period === "monthly") {
@@ -73,18 +77,20 @@ async function checkBudgetStatus(userId, { category_id, date }) {
       to   = `${year}-12-31`;
     }
 
-    const spent = await budgetsRepository.sumExpensesForPeriod(userId, {
-      from,
-      to,
-      categoryId: category_id ?? null,
-      isGlobal: budget.category_id === null,
-    });
+    for (const budget of budgets) {
+      const spent = await budgetsRepository.sumExpensesForPeriod(userId, {
+        from,
+        to,
+        categoryId: category_id ?? null,
+        isGlobal: budget.category_id === null,
+      });
 
-    const ratio = spent / parseFloat(budget.amount);
-    const status = ratio > 1 ? "exceeded" : ratio >= 0.8 ? "warning" : "ok";
+      const ratio = spent / parseFloat(budget.amount);
+      const status = ratio > 1 ? "exceeded" : ratio >= 0.8 ? "warning" : "ok";
 
-    if (SEVERITY[status] > SEVERITY[worstStatus]) {
-      worstStatus = status;
+      if (SEVERITY[status] > SEVERITY[worstStatus]) {
+        worstStatus = status;
+      }
     }
   }
 

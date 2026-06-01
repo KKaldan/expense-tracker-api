@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (121 integration tests) |
+| Testing | Jest + Supertest (122 integration tests) |
 
 ## Prerequisites
 
@@ -447,7 +447,7 @@ expense-tracker-api/
 │   │   ├── errorHandler.js     # Central error handler (AppError, Zod, JWT, pg)
 │   │   └── validate.js         # Zod validation middleware factory
 │   ├── modules/
-│   │   ├── auth/               # register, login, me
+│   │   ├── auth/               # register, login, refresh, logout, me
 │   │   ├── expenses/           # Full CRUD with pagination, filtering, budget status
 │   │   ├── categories/         # System defaults + user custom categories
 │   │   ├── budgets/            # CRUD + budget check hook
@@ -462,9 +462,10 @@ expense-tracker-api/
 │   ├── 004_create_categories.sql       # Includes 10 system default categories
 │   ├── 005_create_expenses.sql
 │   ├── 006_create_budgets.sql
-│   └── 007_add_budgets_unique_constraints.sql
+│   ├── 007_add_budgets_unique_constraints.sql
+│   └── 008_add_users_updated_at_trigger.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (121 tests across 5 suites)
+│   ├── integration/            # Jest + Supertest tests (122 tests across 5 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — runs migrations before test suite
 ├── docs/

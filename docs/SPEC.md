@@ -41,7 +41,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 | Layer | Technology | Rationale |
 |---|---|---|
 | Runtime | Node.js 20 LTS | LTS support; non-blocking I/O ideal for API workloads |
-| Framework | Express 4 | Minimal, composable; vast middleware ecosystem |
+| Framework | Express 5 | Minimal, composable; vast middleware ecosystem |
 | Database | PostgreSQL 16 | ACID guarantees; `NUMERIC` type; powerful aggregation |
 | Auth | jsonwebtoken | Stateless access tokens paired with rotating refresh tokens |
 | Validation | Zod | Schema validation with precise, field-level error messages |
@@ -78,7 +78,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 - Budgets scoped per `(user, optional category, period)`; period is `monthly` or `yearly`
 - `NULL category_id` = a global spending cap across all categories
 - Budget evaluation runs inside the expense service on every create/update
-- Response envelope includes `budget_status: ok | warning | exceeded` — write always succeeds
+- Response envelope includes `budget_status: none | ok | warning | exceeded` — write always succeeds
 
 ### 2.5 Reports & Analytics
 
@@ -124,6 +124,8 @@ All primary keys are `UUID` (`gen_random_uuid()`). Mutable tables carry both `cr
 | `name` | `TEXT` | NO | `UNIQUE(owner_id, name)` |
 | `icon` | `TEXT` | YES | Emoji or icon identifier for client UI |
 | `color` | `TEXT` | YES | Hex colour string e.g. `#27AE60` |
+| `created_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()` |
+| `updated_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()`, maintained by trigger |
 
 ### 3.4 `expenses`
 
@@ -133,11 +135,11 @@ All primary keys are `UUID` (`gen_random_uuid()`). Mutable tables carry both `cr
 | `owner_id` | `UUID` | NO | FK → `users(id)` ON DELETE CASCADE |
 | `category_id` | `UUID` | YES | FK → `categories(id)` ON DELETE SET NULL |
 | `amount` | `NUMERIC(12,2)` | NO | `CHECK (amount > 0)` — never `FLOAT` |
-| `currency` | `CHAR(3)` | NO | ISO 4217 code; `DEFAULT 'USD'` |
+| `currency` | `CHAR(3)` | NO | ISO 4217 code; `DEFAULT 'GBP'` |
 | `description` | `TEXT` | YES | Free-text note |
 | `date` | `DATE` | NO | User-supplied expenditure date |
 | `created_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()` |
-| `updated_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()` |
+| `updated_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()`, maintained by trigger |
 
 ### 3.5 `budgets`
 
@@ -149,6 +151,7 @@ All primary keys are `UUID` (`gen_random_uuid()`). Mutable tables carry both `cr
 | `amount` | `NUMERIC(12,2)` | NO | `CHECK (amount > 0)` |
 | `period` | `TEXT` | NO | `CHECK (period IN ('monthly','yearly'))` |
 | `created_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()` |
+| `updated_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()`, maintained by trigger |
 
 ### 3.6 Indexes
 
@@ -274,7 +277,7 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 ```
 1. Extract token from "Authorization: Bearer <token>" header
 2. jwt.verify(token, JWT_SECRET) — throws TokenExpiredError or JsonWebTokenError
-3. Attach decoded payload → req.user = { id, email }
+3. Attach decoded payload → req.user = { id, email, iat, exp }
 4. next()  —or—  return 401 with WWW-Authenticate: Bearer error="invalid_token"
 ```
 
@@ -285,19 +288,19 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 ### 6.1 Directory Structure
 
 ```
-expense-tracker/
+expense-tracker-api/
 ├── src/
 │   ├── config/
 │   │   ├── db.js                  # pg Pool singleton
 │   │   └── env.js                 # Validated env vars — no raw process.env access elsewhere
 │   ├── modules/
-│   │   ├── auth/                  # auth.routes · auth.controller · auth.service · auth.repository
-│   │   ├── expenses/
-│   │   ├── categories/
-│   │   ├── budgets/
-│   │   └── reports/
+│   │   ├── auth/                  # auth.routes · auth.controller · auth.service · auth.repository · auth.schema
+│   │   ├── expenses/              # expenses.routes · expenses.controller · expenses.service · expenses.repository · expenses.schema
+│   │   ├── categories/            # categories.routes · categories.controller · categories.service · categories.repository · categories.schema
+│   │   ├── budgets/               # budgets.routes · budgets.controller · budgets.service · budgets.repository · budgets.schema
+│   │   └── reports/               # reports.routes · reports.controller · reports.service · reports.schema (no repository)
 │   ├── middleware/
-│   │   ├── auth.middleware.js      # JWT verification; sets req.user = { id, email }
+│   │   ├── auth.middleware.js     # JWT verification; sets req.user = { id, email, iat, exp }
 │   │   ├── validate.js            # Zod schema validation factory
 │   │   └── errorHandler.js        # Central 4-arg error handler
 │   ├── utils/
@@ -305,13 +308,21 @@ expense-tracker/
 │   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── unit/
-│   └── integration/
+│   ├── integration/               # Jest + Supertest (122 tests across 5 suites)
+│   ├── helpers/                   # Shared test utilities
+│   └── setup/                     # globalSetup — runs migrations before test suite
 ├── migrations/
-│   ├── 001_create_users.sql
-│   ├── 002_create_categories.sql
-│   └── ...
+│   ├── 001_enable_extensions.sql
+│   ├── 002_create_users.sql
+│   ├── 003_create_refresh_tokens.sql
+│   ├── 004_create_categories.sql
+│   ├── 005_create_expenses.sql
+│   ├── 006_create_budgets.sql
+│   ├── 007_add_budgets_unique_constraints.sql
+│   └── 008_add_users_updated_at_trigger.sql
+├── docs/
 ├── .env.example
+├── .env.test.example
 └── server.js                      # Entry point — app.listen() lives here only
 ```
 

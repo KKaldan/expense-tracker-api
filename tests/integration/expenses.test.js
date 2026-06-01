@@ -165,6 +165,32 @@ describe("POST /api/v1/expenses", () => {
     expect(res.body.data.budget_status).toBe("exceeded");
   });
 
+  it("returns exceeded when global budget is breached even if category budget is ok", async () => {
+    const catRes = await request(app)
+      .post("/api/v1/categories")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Dining" });
+    const categoryId = catRes.body.data.id;
+
+    // Category budget: £500 — expense will be well under this
+    await request(app).post("/api/v1/budgets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 500, period: "monthly", category_id: categoryId });
+
+    // Global budget: £50 — expense will exceed this
+    await request(app).post("/api/v1/budgets")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 50, period: "monthly" });
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 75, category_id: categoryId });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.budget_status).toBe("exceeded");
+  });
+
 });
 
 // ---------------------------------------------------------------------------

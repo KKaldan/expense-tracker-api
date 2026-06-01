@@ -36,7 +36,7 @@ Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–008 applied (008 = users updated_at trigger) |
-| Tests | 121 integration tests across 5 suites — all passing |
+| Tests | 122 integration tests across 5 suites — all passing |
 
 ### ⬜ Next — Phase 7: Security & Production Hardening
 

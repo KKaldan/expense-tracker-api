@@ -53,7 +53,7 @@
 - `GET /reports/monthly-trend` — month-by-month totals with configurable lookback window
 - All report queries use single-pass SQL aggregation (no N+1 patterns)
 - `from`/`to` optional (default to current calendar month); `months` param 1–24 (default 6)
-- Integration tests: 24 tests, 121 total across 5 suites — all passing
+- Integration tests: 25 tests, 122 total across 5 suites — all passing
 
 ---
 
