@@ -132,6 +132,122 @@ describe("POST /api/v1/auth/login", () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/v1/auth/refresh
+// ---------------------------------------------------------------------------
+
+describe("POST /api/v1/auth/refresh", () => {
+
+  beforeEach(async () => {
+    await registerUser();
+  });
+
+  it("returns 200 with a new access token and rotates the refresh token cookie", async () => {
+    const loginRes = await loginUser();
+    const cookie = loginRes.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.token).toBeDefined();
+    expect(typeof res.body.data.token).toBe("string");
+
+    // A new refresh_token cookie should be issued
+    const newCookie = res.headers["set-cookie"]?.find((c) => c.startsWith("refresh_token="));
+    expect(newCookie).toBeDefined();
+  });
+
+  it("returns 401 when no refresh token cookie is provided", async () => {
+    const res = await request(app).post("/api/v1/auth/refresh");
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("returns 401 for an invalid refresh token", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", "refresh_token=notavalidtoken");
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("refresh token is single-use — second use of the same token returns 401", async () => {
+    const loginRes = await loginUser();
+    const cookie = loginRes.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+
+    // First use — should succeed
+    await request(app).post("/api/v1/auth/refresh").set("Cookie", cookie);
+
+    // Second use of the same token — must be rejected
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(401);
+  });
+
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/auth/logout
+// ---------------------------------------------------------------------------
+
+describe("POST /api/v1/auth/logout", () => {
+
+  beforeEach(async () => {
+    await registerUser();
+  });
+
+  it("returns 200 and clears the refresh token cookie", async () => {
+    const loginRes = await loginUser();
+    const token = loginRes.body.data.token;
+    const cookie = loginRes.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+
+    const res = await request(app)
+      .post("/api/v1/auth/logout")
+      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // The Set-Cookie header should clear the refresh_token cookie
+    const clearedCookie = res.headers["set-cookie"]?.find((c) => c.startsWith("refresh_token="));
+    expect(clearedCookie).toBeDefined();
+  });
+
+  it("revokes the refresh token so it cannot be used after logout", async () => {
+    const loginRes = await loginUser();
+    const token = loginRes.body.data.token;
+    const cookie = loginRes.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+
+    // Logout
+    await request(app)
+      .post("/api/v1/auth/logout")
+      .set("Authorization", `Bearer ${token}`)
+      .set("Cookie", cookie);
+
+    // Attempt to use the revoked refresh token
+    const res = await request(app)
+      .post("/api/v1/auth/refresh")
+      .set("Cookie", cookie);
+
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 401 when no access token is provided", async () => {
+    const res = await request(app).post("/api/v1/auth/logout");
+
+    expect(res.status).toBe(401);
+  });
+
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/v1/auth/me
 // ---------------------------------------------------------------------------
 

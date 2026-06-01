@@ -297,7 +297,7 @@ expense-tracker/
 │   │   ├── budgets/
 │   │   └── reports/
 │   ├── middleware/
-│   │   ├── authenticate.js        # JWT verification; sets req.user
+│   │   ├── auth.middleware.js      # JWT verification; sets req.user = { id, email }
 │   │   ├── validate.js            # Zod schema validation factory
 │   │   └── errorHandler.js        # Central 4-arg error handler
 │   ├── utils/

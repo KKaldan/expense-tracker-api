@@ -57,7 +57,9 @@ async function checkBudgetStatus(userId, { category_id, date }) {
   const year = expenseDate.getUTCFullYear();
   const month = expenseDate.getUTCMonth(); // 0-indexed
 
-  // Check monthly budget first, then yearly
+  const SEVERITY = { exceeded: 3, warning: 2, ok: 1, none: 0 };
+  let worstStatus = "none";
+
   for (const period of ["monthly", "yearly"]) {
     const budget = await budgetsRepository.findApplicableBudget(userId, category_id ?? null, period);
     if (!budget) continue;
@@ -79,13 +81,14 @@ async function checkBudgetStatus(userId, { category_id, date }) {
     });
 
     const ratio = spent / parseFloat(budget.amount);
+    const status = ratio > 1 ? "exceeded" : ratio >= 0.8 ? "warning" : "ok";
 
-    if (ratio > 1)    return "exceeded";
-    if (ratio >= 0.8) return "warning";
-    return "ok";
+    if (SEVERITY[status] > SEVERITY[worstStatus]) {
+      worstStatus = status;
+    }
   }
 
-  return "none";
+  return worstStatus;
 }
 
 module.exports = {

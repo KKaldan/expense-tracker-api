@@ -29,7 +29,7 @@
 
 ---
 
-## Week 3 — Categories & Budgets ✅
+## Week 3 — Categories, Budgets & Auth Hardening ✅
 
 - Categories module: list (system + user), create, update, delete custom categories
 - System categories (owner_id = NULL) are read-only for all users
@@ -37,7 +37,12 @@
 - Unique constraint on (owner_id, category_id, period) via partial indexes to handle NULL category
 - Budget check hook in expense service: warns on create/update if a budget is exceeded
 - Response envelope includes `budget_status: none | ok | warning | exceeded`
-- Integration tests: 90 tests across 4 suites (auth, expenses, categories, budgets)
+- `POST /auth/refresh` — single-use refresh token rotation; new access token + new cookie issued
+- `POST /auth/logout` — revokes refresh token in DB and clears cookie
+- Refresh tokens stored as SHA-256 hashes (raw token never persisted)
+- JWT payload standardised to `{ id, email }` — `req.user.id` and `req.user.email` available everywhere
+- Migration 008: `updated_at` trigger added to `users` table
+- Integration tests: 97 tests across 4 suites (auth, expenses, categories, budgets)
 
 ---
 
@@ -55,7 +60,6 @@
 - Rate limiting on auth endpoints (`express-rate-limit`)
 - Security headers (`helmet`)
 - CORS configuration
-- Refresh token rotation (`POST /auth/refresh`, `POST /auth/logout`)
 - Docker containerisation
 - CI/CD pipeline
 - Frontend dashboard (React)

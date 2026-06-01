@@ -3,7 +3,7 @@ const { listExpensesQuerySchema } = require("./expenses.schema");
 
 async function createExpense(req, res) {
 
-  const expense = await expensesService.createExpense(req.user.userId, req.body);
+  const expense = await expensesService.createExpense(req.user.id, req.body);
 
   res.status(201).json({
     success: true,
@@ -13,7 +13,7 @@ async function createExpense(req, res) {
 
 async function getExpense(req, res) {
 
-  const expense = await expensesService.getExpenseById(req.user.userId, req.params.id);
+  const expense = await expensesService.getExpenseById(req.user.id, req.params.id);
 
   res.json({
     success: true,
@@ -24,7 +24,7 @@ async function getExpense(req, res) {
 async function getExpenses(req, res) {
 
   const filters = listExpensesQuerySchema.parse(req.query);
-  const { expenses, meta } = await expensesService.getExpenses(req.user.userId, filters);
+  const { expenses, meta } = await expensesService.getExpenses(req.user.id, filters);
 
   res.json({
     success: true,
@@ -36,7 +36,7 @@ async function getExpenses(req, res) {
 async function updateExpense(req, res) {
 
   const expense = await expensesService.updateExpense(
-    req.user.userId,
+    req.user.id,
     req.params.id,
     req.body
   );
@@ -49,7 +49,7 @@ async function updateExpense(req, res) {
 
 async function deleteExpense(req, res) {
 
-  await expensesService.deleteExpense(req.user.userId, req.params.id);
+  await expensesService.deleteExpense(req.user.id, req.params.id);
 
   res.json({
     success: true,

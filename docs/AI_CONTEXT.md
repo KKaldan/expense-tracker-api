@@ -1,220 +1,127 @@
 # AI Development Context
 
-You are acting as a senior backend engineer assisting with the development of this project.
+You are acting as a senior backend engineer on this project.
 
-Your responsibilities include:
-- Reviewing architecture
-- Suggesting improvements
-- Designing features before implementation
-- Maintaining code quality and consistency
-- Ensuring secure backend practices
-
----
-
-# Project
-
-SaaS-style Expense Tracker backend API.
-
-The goal of the project is to build a production-style backend system that allows users to:
-
-- Create accounts
-- Log in securely
-- Track personal expenses
-- Manage financial data
-- View reports and analytics
-
-The project is being developed as a portfolio project demonstrating backend engineering skills.
+Your responsibilities:
+- Write production-quality, clean, maintainable code
+- Follow the architecture and conventions documented here exactly
+- Challenge poor ideas, suggest best practices, flag risks
+- Do not over-engineer — this is a portfolio-scale project, not a FAANG system
 
 ---
 
-# Tech Stack
+## What This Project Is
 
-Backend Runtime
-- Node.js
+A SaaS-style personal expense tracker backend REST API.
+Node.js + Express 5, PostgreSQL, JWT authentication.
+Single-user scope — no teams or tenants.
 
-Web Framework
-- Express
-
-Database
-- PostgreSQL
-
-Authentication
-- JWT (JSON Web Tokens)
-
-Security
-- bcrypt password hashing
-
-Validation
-- Zod (planned)
-
-API Testing
-- Postman
-
-Version Control
-- Git / GitHub
+Full specification: `docs/SPEC.md`
+Architecture reference: `docs/ARCHITECTURE.md`
 
 ---
 
-# Architecture
+## Current State
 
-The project follows a layered architecture.
+Phases 1–5 are complete. The codebase is clean, tested, and reviewed.
 
-routes → controllers → services → repositories → database
+### ✅ Complete
 
-Responsibilities:
+| Module | Key details |
+|---|---|
+| Project scaffold | `app.js`, `server.js`, `src/config/db.js`, `src/config/env.js` (Zod-validated) |
+| Auth | register, login, refresh, logout, GET /me — full two-token architecture |
+| Categories | System defaults (owner_id=NULL) + user custom CRUD |
+| Expenses | Full CRUD — pagination, date-range filter, category filter, multi-column sort, budget_status |
+| Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
+| Migrations | 001–008 applied (008 = users updated_at trigger) |
+| Tests | 97 integration tests across 4 suites — all passing |
 
-Routes  
-Define API endpoints and attach middleware.
+### ⬜ Next — Phase 6: Reports Module
 
-Controllers  
-Handle HTTP request and response logic.
+Three endpoints, all single-pass SQL aggregations:
 
-Services  
-Contain business logic.
+| Endpoint | Description |
+|---|---|
+| `GET /reports/summary` | Total spend, expense count, daily average for a date range |
+| `GET /reports/by-category` | Spend and percentage share per category for a date range |
+| `GET /reports/monthly-trend` | Month-by-month totals with configurable lookback (default 6 months) |
 
-Repositories  
-Contain database queries.
-
-Database  
-PostgreSQL relational database.
-
----
-
-# Folder Structure
-
-src/
-
-config  
-Database connection
-
-middleware  
-Authentication middleware
-
-modules  
-Feature modules (auth, expenses)
-
-utils  
-Shared utilities such as error handling
-
-app.js  
-Express app configuration
-
-server.js  
-Application entry point
+No repository file for reports — queries run directly via the shared db pool in `reports.service.js`.
 
 ---
 
-# Modules Implemented
+## Architecture
 
-## Auth Module
+```
+Routes → Controllers → Services → Repositories → PostgreSQL
+```
 
-Endpoints:
+- Routes: mount middleware, wire HTTP verbs to controllers. No logic.
+- Controllers: parse req/res, call one service method, return JSON envelope. No SQL.
+- Services: all business logic. Throws AppError on rule violations. No req/res.
+- Repositories: all SQL. Parameterised queries only. Returns plain objects.
 
-POST /api/v1/auth/register  
-POST /api/v1/auth/login  
-GET /api/v1/auth/me  
+The reports module has no repository — its service runs queries directly via the db pool (aggregation queries don't map to the CRUD repository pattern).
 
-Features:
-
-User registration  
-Password hashing  
-JWT authentication  
-Protected routes
+**A layer may only call the layer directly below it.**
 
 ---
 
-## Expense Module
+## Conventions
 
-Endpoints:
-
-POST /api/v1/expenses  
-GET /api/v1/expenses  
-DELETE /api/v1/expenses/:id  
-
-Features:
-
-Create expense  
-List user expenses  
-Delete expense  
-
-Expenses belong to authenticated users.
+- Module files: `<module>.<layer>.js` — e.g. `expenses.service.js`
+- `const` over `let`; `let` only when reassignment is needed
+- No default exports except Express routers and the app
+- All async functions use `async/await` — no `.then()` chains
+- All controllers wrapped with `asyncHandler()` — no bare try/catch in controllers
+- Errors thrown as `new AppError(message, statusCode)` or factory methods (`AppError.notFound(...)`)
+- No raw `process.env` access outside `src/config/env.js`
+- No SQL outside repository files (or reports.service.js)
 
 ---
 
-# Database
+## Auth Details
 
-Current tables:
+Two-token strategy:
+- **Access token** — JWT, HS256, `{ id, email }` payload, 15m expiry — `Authorization: Bearer` header
+- **Refresh token** — `crypto.randomBytes(64)`, SHA-256 hashed before DB storage, 7-day expiry, `httpOnly` cookie
 
-users  
-expenses
+`req.user` after `authenticate` middleware: `{ id, email, iat, exp }`
 
-Relationship:
-
-expenses.user_id → users.id
-
-Each expense belongs to a specific user.
+Refresh tokens are single-use. Every `POST /auth/refresh` revokes the old token and issues a new one.
 
 ---
 
-# Coding Principles
+## Response Envelope
 
-Maintain the layered architecture.
+Every endpoint returns one of these two shapes — no exceptions.
 
-Controllers should not contain business logic.
+```json
+{ "success": true, "data": { } }
+```
+```json
+{ "success": false, "error": { "code": "NOT_FOUND", "message": "Expense not found" } }
+```
 
-Services should handle business logic.
-
-Repositories should contain SQL queries only.
-
-Follow REST API design conventions.
-
-All protected routes must require authentication middleware.
-
----
-
-# Current Development Stage
-
-Week 1 completed.
-
-Implemented:
-
-User authentication system  
-JWT protected routes  
-Expense tracking CRUD basics  
-Database schema  
-Project architecture
+Validation errors (400 only) add a `details` array:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [{ "field": "email", "message": "Must be a valid email address" }]
+  }
+}
+```
 
 ---
 
-# Current Priority
+## Test Conventions
 
-Week 2 improvements:
-
-Add expense editing endpoint  
-PUT /expenses/:id
-
-Add pagination for GET /expenses
-
-Add filtering by category
-
-Add filtering by date range
-
-Add request validation using Zod
-
-Improve error handling
-
----
-
-# Long Term Goals
-
-Categories system
-
-Budgets system
-
-Expense analytics and reporting
-
-Dashboard-ready endpoints
-
-Possible frontend integration (React)
-
-Deployment and production readiness
+- Integration tests in `tests/integration/` — run against a real test database
+- Test database schema is rebuilt by `tests/setup/globalSetup.js` before each full run
+- Tables are truncated between individual tests via `tests/db.js` `truncateTables()`
+- Shared test helpers in `tests/helpers/auth.helpers.js`
+- Test files named `<module>.test.js`

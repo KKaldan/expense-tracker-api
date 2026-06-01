@@ -1,19 +1,24 @@
 require("dotenv").config();
 
-const REQUIRED = ["DATABASE_URL", "JWT_SECRET"];
+const { z } = require("zod");
 
-for (const key of REQUIRED) {
-  if (!process.env[key]) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
+const envSchema = z.object({
+  NODE_ENV:                  z.string().default("development"),
+  PORT:                      z.coerce.number().default(3000),
+  DATABASE_URL:              z.string().min(1, "DATABASE_URL is required"),
+  JWT_SECRET:                z.string().min(1, "JWT_SECRET is required"),
+  JWT_EXPIRY:                z.string().default("15m"),
+  REFRESH_TOKEN_EXPIRY_DAYS: z.coerce.number().default(7),
+  COOKIE_SECRET:             z.string().optional(),
+});
+
+let parsed;
+try {
+  parsed = envSchema.parse(process.env);
+} catch (err) {
+  console.error("Invalid environment configuration:");
+  err.issues.forEach((issue) => console.error(` - ${issue.path.join(".")}: ${issue.message}`));
+  process.exit(1);
 }
 
-module.exports = {
-  NODE_ENV: process.env.NODE_ENV || "development",
-  PORT: parseInt(process.env.PORT, 10) || 3000,
-  DATABASE_URL: process.env.DATABASE_URL,
-  JWT_SECRET: process.env.JWT_SECRET,
-  JWT_EXPIRY: process.env.JWT_EXPIRY || "15m",
-  REFRESH_TOKEN_EXPIRY_DAYS: parseInt(process.env.REFRESH_TOKEN_EXPIRY_DAYS, 10) || 7,
-  COOKIE_SECRET: process.env.COOKIE_SECRET || null,
-};
+module.exports = parsed;

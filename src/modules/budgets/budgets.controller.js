@@ -1,7 +1,7 @@
 const budgetsService = require("./budgets.service");
 
 async function getBudgets(req, res) {
-  const budgets = await budgetsService.getBudgets(req.user.userId);
+  const budgets = await budgetsService.getBudgets(req.user.id);
 
   res.json({
     success: true,
@@ -10,7 +10,7 @@ async function getBudgets(req, res) {
 }
 
 async function createBudget(req, res) {
-  const budget = await budgetsService.createBudget(req.user.userId, req.body);
+  const budget = await budgetsService.createBudget(req.user.id, req.body);
 
   res.status(201).json({
     success: true,
@@ -20,7 +20,7 @@ async function createBudget(req, res) {
 
 async function updateBudget(req, res) {
   const budget = await budgetsService.updateBudget(
-    req.user.userId,
+    req.user.id,
     req.params.id,
     req.body
   );
@@ -32,7 +32,7 @@ async function updateBudget(req, res) {
 }
 
 async function deleteBudget(req, res) {
-  await budgetsService.deleteBudget(req.user.userId, req.params.id);
+  await budgetsService.deleteBudget(req.user.id, req.params.id);
 
   res.json({
     success: true,
