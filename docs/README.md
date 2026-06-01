@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (97 integration tests) |
+| Testing | Jest + Supertest (121 integration tests) |
 
 ## Prerequisites
 
@@ -366,6 +366,74 @@ Delete a budget. Returns `404` if not found.
 
 ---
 
+### Reports
+
+All report endpoints accept optional `from` / `to` date parameters (`YYYY-MM-DD`). When omitted, they default to the current calendar month. `from` must be on or before `to`.
+
+#### `GET /reports/summary` *(auth required)*
+Total spend, expense count, and daily average for a date range.
+
+**Query parameters:** `from`, `to` (optional — default: current month)
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": {
+    "from": "2026-06-01",
+    "to": "2026-06-30",
+    "expense_count": 12,
+    "total_spend": "234.50",
+    "daily_average": "7.82"
+  }
+}
+```
+
+---
+
+#### `GET /reports/by-category` *(auth required)*
+Spend and percentage share per category for a date range. Results ordered by spend descending. Expenses with no category appear with `category_id: null`.
+
+**Query parameters:** `from`, `to` (optional — default: current month)
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    { "category_id": "uuid", "category_name": "Food & Drink", "total_spend": "150.00", "percentage": "64.00" },
+    { "category_id": null,   "category_name": null,           "total_spend": "84.50",  "percentage": "36.00" }
+  ]
+}
+```
+
+---
+
+#### `GET /reports/monthly-trend` *(auth required)*
+Month-by-month totals for a configurable lookback window. All months in the window are returned even if spend is zero.
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `months` | integer | `6` | Lookback window in months (1–24) |
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": [
+    { "month": "2026-01", "total_spend": "120.00", "expense_count": 4, "delta": null },
+    { "month": "2026-02", "total_spend": "95.00",  "expense_count": 3, "delta": "-25.00" },
+    { "month": "2026-03", "total_spend": "200.00", "expense_count": 7, "delta": "105.00" }
+  ]
+}
+```
+
+`delta` is the difference from the previous month (`null` for the first entry in the window).
+
+---
+
 ## Project Structure
 
 ```
@@ -383,7 +451,7 @@ expense-tracker-api/
 │   │   ├── expenses/           # Full CRUD with pagination, filtering, budget status
 │   │   ├── categories/         # System defaults + user custom categories
 │   │   ├── budgets/            # CRUD + budget check hook
-│   │   └── reports/            # Planned — Week 4
+│   │   └── reports/            # summary, by-category, monthly-trend
 │   └── utils/
 │       ├── AppError.js         # Custom operational error class
 │       └── asyncHandler.js     # Wraps async controllers to forward errors to Express
@@ -396,7 +464,7 @@ expense-tracker-api/
 │   ├── 006_create_budgets.sql
 │   └── 007_add_budgets_unique_constraints.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (97 tests across 4 suites)
+│   ├── integration/            # Jest + Supertest tests (121 tests across 5 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — runs migrations before test suite
 ├── docs/

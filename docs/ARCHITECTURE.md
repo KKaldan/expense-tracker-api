@@ -171,7 +171,7 @@ Every endpoint returns one of these two shapes. No exceptions.
 
 ---
 
-## Planned: Reports Module
+## Reports Module
 
 The reports module follows a simplified pattern — no repository layer.
 
@@ -180,3 +180,11 @@ reports.routes.js  →  reports.controller.js  →  reports.service.js  →  db 
 ```
 
 All three endpoints execute a single aggregated SQL query each. No N+1 patterns.
+
+| Endpoint | SQL technique |
+|---|---|
+| `GET /reports/summary` | `COUNT` / `SUM` / `ROUND` — divides by days in range for daily average |
+| `GET /reports/by-category` | `SUM(...) OVER ()` window function for percentage share in one pass |
+| `GET /reports/monthly-trend` | `generate_series` CTE ensures all months appear; `LAG()` window function for delta |
+
+Query parameters for `summary` and `by-category` are validated in the controller via `schema.parse(req.query)` — Express 5 makes `req.query` a computed getter that cannot be reassigned, so the `validate` middleware only works for `body`.

@@ -23,7 +23,7 @@ Architecture reference: `docs/ARCHITECTURE.md`
 
 ## Current State
 
-Phases 1–5 are complete. The codebase is clean, tested, and reviewed.
+Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
 
 ### ✅ Complete
 
@@ -34,20 +34,19 @@ Phases 1–5 are complete. The codebase is clean, tested, and reviewed.
 | Categories | System defaults (owner_id=NULL) + user custom CRUD |
 | Expenses | Full CRUD — pagination, date-range filter, category filter, multi-column sort, budget_status |
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
+| Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–008 applied (008 = users updated_at trigger) |
-| Tests | 97 integration tests across 4 suites — all passing |
+| Tests | 121 integration tests across 5 suites — all passing |
 
-### ⬜ Next — Phase 6: Reports Module
+### ⬜ Next — Phase 7: Security & Production Hardening
 
-Three endpoints, all single-pass SQL aggregations:
-
-| Endpoint | Description |
+| Task | Detail |
 |---|---|
-| `GET /reports/summary` | Total spend, expense count, daily average for a date range |
-| `GET /reports/by-category` | Spend and percentage share per category for a date range |
-| `GET /reports/monthly-trend` | Month-by-month totals with configurable lookback (default 6 months) |
-
-No repository file for reports — queries run directly via the shared db pool in `reports.service.js`.
+| `helmet` | Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
+| CORS | Whitelist approved origins; required for any browser client |
+| Rate limiting | `express-rate-limit` on `/auth/*` — 10 req/min per IP |
+| Docker | `Dockerfile` + `docker-compose.yml` — API + PostgreSQL, runnable with one command |
+| CI/CD | GitHub Actions — run test suite on every push to main |
 
 ---
 
