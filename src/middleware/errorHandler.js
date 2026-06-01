@@ -11,6 +11,9 @@ function errorHandler(err, _req, res, _next) {
 
   // --- 1. Operational errors (thrown deliberately with AppError) ---
   if (err.isOperational) {
+    if (err.statusCode === 401) {
+      res.set("WWW-Authenticate", 'Bearer error="invalid_token"');
+    }
     return res.status(err.statusCode).json({
       success: false,
       error: {
@@ -39,17 +42,23 @@ function errorHandler(err, _req, res, _next) {
 
   // --- 2b. JWT errors ---
   if (err.name === "TokenExpiredError") {
-    return res.status(401).json({
-      success: false,
-      error: { code: "TOKEN_EXPIRED", message: "Access token has expired" },
-    });
+    return res
+      .status(401)
+      .set("WWW-Authenticate", 'Bearer error="invalid_token"')
+      .json({
+        success: false,
+        error: { code: "TOKEN_EXPIRED", message: "Access token has expired" },
+      });
   }
 
   if (err.name === "JsonWebTokenError") {
-    return res.status(401).json({
-      success: false,
-      error: { code: "INVALID_TOKEN", message: "Invalid access token" },
-    });
+    return res
+      .status(401)
+      .set("WWW-Authenticate", 'Bearer error="invalid_token"')
+      .json({
+        success: false,
+        error: { code: "INVALID_TOKEN", message: "Invalid access token" },
+      });
   }
 
   // --- 2c. PostgreSQL unique constraint violation ---

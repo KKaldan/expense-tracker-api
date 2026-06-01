@@ -2,10 +2,14 @@ const authService = require("./auth.service");
 const AppError = require("../../utils/AppError");
 const { NODE_ENV, REFRESH_TOKEN_EXPIRY_DAYS } = require("../../config/env");
 
-const COOKIE_OPTIONS = {
+const COOKIE_BASE = {
   httpOnly: true,
   secure: NODE_ENV === "production",
   sameSite: "strict",
+};
+
+const COOKIE_OPTIONS = {
+  ...COOKIE_BASE,
   maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
 };
 
@@ -53,11 +57,7 @@ async function logout(req, res) {
     await authService.logout(rawToken);
   }
 
-  res.clearCookie("refresh_token", {
-    httpOnly: true,
-    secure: NODE_ENV === "production",
-    sameSite: "strict",
-  });
+  res.clearCookie("refresh_token", COOKIE_BASE);
 
   res.json({ success: true });
 }

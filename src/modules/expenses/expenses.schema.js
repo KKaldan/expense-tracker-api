@@ -75,6 +75,9 @@ const listExpensesQuerySchema = z.object({
     .optional(),
   category_id: z.string().uuid({ message: "category_id must be a valid UUID" }).optional(),
   sort: z.string().optional(),
-});
+}).refine(
+  ({ from, to }) => !from || !to || from <= to,
+  { message: "from must be on or before to", path: ["from"] }
+);
 
 module.exports = { createExpenseSchema, updateExpenseSchema, listExpensesQuerySchema };

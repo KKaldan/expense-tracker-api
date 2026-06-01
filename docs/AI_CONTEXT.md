@@ -36,17 +36,18 @@ Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–008 applied (008 = users updated_at trigger) |
-| Tests | 122 integration tests across 5 suites — all passing |
+| Tests | 123 integration tests across 5 suites — all passing |
+| Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
-### ⬜ Next — Phase 7: Security & Production Hardening
+### 🔄 In Progress — Phase 7: Security & Production Hardening
 
-| Task | Detail |
-|---|---|
-| `helmet` | Security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
-| CORS | Whitelist approved origins; required for any browser client |
-| Rate limiting | `express-rate-limit` on `/auth/*` — 10 req/min per IP |
-| Docker | `Dockerfile` + `docker-compose.yml` — API + PostgreSQL, runnable with one command |
-| CI/CD | GitHub Actions — run test suite on every push to main |
+| Task | Status | Detail |
+|---|---|---|
+| `helmet` | ✅ Done | `app.use(helmet())` mounted first in app.js — default preset covers CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
+| CORS | ⬜ | Whitelist approved origins; required for any browser client |
+| Rate limiting | ⬜ | `express-rate-limit` on `/auth/*` — 10 req/min per IP |
+| Docker | ⬜ | `Dockerfile` + `docker-compose.yml` — API + PostgreSQL, runnable with one command |
+| CI/CD | ⬜ | GitHub Actions — run test suite on every push to main |
 
 ---
 

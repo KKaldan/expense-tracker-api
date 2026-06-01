@@ -1,4 +1,5 @@
 const express = require("express");
+const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const errorHandler = require("./middleware/errorHandler");
 const authRoutes = require("./modules/auth/auth.routes");
@@ -9,6 +10,7 @@ const reportRoutes = require("./modules/reports/reports.routes");
 
 const app = express();
 
+app.use(helmet());
 app.use(express.json());
 app.use(cookieParser());
 

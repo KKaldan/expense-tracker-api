@@ -260,6 +260,18 @@ describe("GET /api/v1/expenses", () => {
     expect(res.body.data[0].date).toBe("2026-03-15");
   });
 
+  it("returns 400 when from is after to", async () => {
+    const res = await request(app)
+      .get(`${BASE}?from=2026-06-30&to=2026-01-01`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "from" })])
+    );
+  });
+
   it("only returns expenses belonging to the authenticated user", async () => {
     // Create a second user and their expense
     const otherToken = await getToken({ email: "other@example.com" });

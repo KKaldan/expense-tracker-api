@@ -205,7 +205,7 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 |---|---|---|
 | `page` | integer | Page number (default: `1`) |
 | `limit` | integer | Results per page (default: `20`, max: `100`) |
-| `from` | ISO 8601 date | Start of date range filter |
+| `from` | ISO 8601 date | Start of date range filter; must be on or before `to` |
 | `to` | ISO 8601 date | End of date range filter |
 | `category_id` | UUID | Filter by category |
 | `sort` | string | e.g. `date:desc,amount:asc` |
@@ -278,8 +278,10 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 1. Extract token from "Authorization: Bearer <token>" header
 2. jwt.verify(token, JWT_SECRET) — throws TokenExpiredError or JsonWebTokenError
 3. Attach decoded payload → req.user = { id, email, iat, exp }
-4. next()  —or—  return 401 with WWW-Authenticate: Bearer error="invalid_token"
+4. next()  —or—  return 401 with header: WWW-Authenticate: Bearer error="invalid_token"
 ```
+
+All 401 responses from authenticated endpoints include the `WWW-Authenticate: Bearer error="invalid_token"` header (per RFC 6750).
 
 ---
 
@@ -308,7 +310,7 @@ expense-tracker-api/
 │   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (122 tests across 5 suites)
+│   ├── integration/               # Jest + Supertest (123 tests across 5 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — runs migrations before test suite
 ├── migrations/

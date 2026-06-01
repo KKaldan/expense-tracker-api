@@ -13,6 +13,7 @@ const dateRangeSchema = z
   })
   .refine(({ from, to }) => !from || !to || from <= to, {
     message: "from must be on or before to",
+    path: ["from"],
   });
 
 const monthlyTrendQuerySchema = z.object({
