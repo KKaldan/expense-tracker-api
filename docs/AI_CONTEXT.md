@@ -23,9 +23,9 @@ Architecture reference: `docs/ARCHITECTURE.md`
 
 ## Current State
 
-Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
+Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 
-### ✅ Complete
+### ✅ Phases 1–6: Core Backend — Complete
 
 | Module | Key details |
 |---|---|
@@ -39,15 +39,49 @@ Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
 | Tests | 127 integration tests across 5 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
-### 🔄 In Progress — Phase 7: Security & Production Hardening
+### ✅ Phase 7: Security & Production Hardening — Complete
 
 | Task | Status | Detail |
 |---|---|---|
 | `helmet` | ✅ Done | `app.use(helmet())` mounted first in app.js — default preset covers CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
-| CORS | ⬜ | Whitelist approved origins; required for any browser client |
-| Rate limiting | ⬜ | `express-rate-limit` on `/auth/*` — 10 req/min per IP |
-| Docker | ⬜ | `Dockerfile` + `docker-compose.yml` — API + PostgreSQL, runnable with one command |
-| CI/CD | ⬜ | GitHub Actions — run test suite on every push to main |
+| CORS | ✅ Done | `cors` middleware with an `origin` allowlist function checked against `CORS_ORIGIN` (comma-separated env var); `credentials: true` for the refresh-token cookie; rejects with `AppError.forbidden` (403) rather than a raw 500 |
+| Rate limiting | ✅ Done | `express-rate-limit` mounted on `/api/v1/auth` — 10 req/min per IP; skipped when `NODE_ENV=test` since the integration suite exceeds that rate by design |
+| Docker | ✅ Done | `Dockerfile` (node:20-alpine, non-root user) + `docker-compose.yml` (api + postgres:16-alpine, healthcheck-gated). `scripts/migrate.js` tracks applied migrations in a `schema_migrations` table so `npm run migrate` is safe to re-run on every container start |
+| CI/CD | ✅ Done | `.github/workflows/ci.yml` — runs the Jest suite against a `postgres:16-alpine` service container on every push/PR to `main` |
+
+### Next
+
+No backend phases remain on `docs/ROADMAP.md`. The only outstanding item is a frontend dashboard (React) — a separate, not-yet-started effort. Treat this backend as feature-complete unless the user introduces new scope.
+
+---
+
+## Key Implementation Details
+
+Non-obvious decisions a fresh reader must know — do not re-debate these without a good reason.
+
+**Currency:** Default is `GBP`, not USD. This is intentional — matches the target user, diverges from the spec deliberately.
+
+**Express 5 / req.query:** Express 5 makes `req.query` a computed getter that cannot be reassigned. The `validate()` middleware factory only works for `req.body`. All query-param validation is done by calling `schema.parse(req.query)` directly inside the controller (which is wrapped in `asyncHandler`, so ZodErrors propagate to the central error handler correctly).
+
+**Sort safety:** `buildOrderBy()` in `expenses.repository.js` uses an allowlist (`Set`) for both column names and directions. Column names can't be parameterised in pg, so the allowlist is the correct SQL-injection defence here. Unrecognised values are silently dropped; an empty result falls back to the default ordering.
+
+**Budget check:** `checkBudgetStatus` iterates both `monthly` and `yearly` periods, fetching all applicable budgets (category-specific + global) for each. Every budget is evaluated independently and the worst severity across all is returned. Severity order: `exceeded > warning > ok > none`. A global cap breach surfaces even when the category budget is fine.
+
+**WWW-Authenticate header:** All 401 responses include `WWW-Authenticate: Bearer error="invalid_token"` (RFC 6750). This is handled centrally in `errorHandler.js` — both `AppError` 401s and raw JWT errors (`TokenExpiredError`, `JsonWebTokenError`) go through the same header-setting logic. Do not replicate this in individual controllers.
+
+**Cookie constants:** `COOKIE_BASE` (httpOnly, secure, sameSite) is shared between `COOKIE_OPTIONS` (set on login/refresh, includes maxAge) and the `clearCookie` call on logout. This prevents the two from drifting apart silently.
+
+**`updated_at` triggers:** All mutable tables (users, categories, expenses, budgets) have a `BEFORE UPDATE` trigger calling `set_updated_at()`. The function is defined in migration 003. Do not add `updated_at = NOW()` to repository UPDATE queries — the trigger handles it.
+
+**pg DATE type parser:** `pg.types.setTypeParser(1082, val => val)` is set in `db.js`. This returns `DATE` columns as `"YYYY-MM-DD"` strings instead of JavaScript `Date` objects. This is critical for the budget period calculations and the `date` field on expenses.
+
+**Test isolation:** `truncateTables()` runs `DELETE FROM users` (not `TRUNCATE CASCADE`) so that the system default categories (owner_id = NULL) survive between tests. TRUNCATE CASCADE would wipe them.
+
+**CORS allowlist:** `CORS_ORIGIN` in `env.js` is a comma-separated string transformed into an array by a Zod `.transform()`. Requests with no `Origin` header (curl, server-to-server, health checks) are always allowed — only browser-sent origins are checked against the list. Rejections throw `AppError.forbidden`, so they go through the normal error envelope instead of an unhandled 500.
+
+**Rate limiter test skip:** `authRateLimiter` (`src/middleware/rateLimiter.js`) checks `env.NODE_ENV === "test"` and no-ops via the `skip` option. The integration suite legitimately calls `/auth/register` and `/auth/login` far more than 10 times/min from one IP; without the skip, the suite would fail on its own traffic, not a real bug.
+
+**Migration tracking:** `scripts/migrate.js` records each applied file in a `schema_migrations` table and skips rows already present. This is what actually makes migrations safe to re-run (the raw SQL files themselves are not idempotent — e.g. `CREATE TABLE` without `IF NOT EXISTS`). Both `npm run migrate` and the `docker-compose.yml` `api` service command run this before starting the server. The Jest suite does not use this script — `tests/setup/globalSetup.js` drops and rebuilds the schema from scratch instead.
 
 ---
 

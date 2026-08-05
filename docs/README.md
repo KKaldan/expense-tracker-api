@@ -51,18 +51,11 @@ Or create it via pgAdmin: right-click Databases → Create → Database → name
 
 **4. Run migrations**
 
-Run each file in order using psql or pgAdmin's Query Tool:
-
 ```bash
-psql postgresql://localhost:5432/expense_tracker -f migrations/001_enable_extensions.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/002_create_users.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/003_create_refresh_tokens.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/004_create_categories.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/005_create_expenses.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/006_create_budgets.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/007_add_budgets_unique_constraints.sql
-psql postgresql://localhost:5432/expense_tracker -f migrations/008_add_users_updated_at_trigger.sql
+npm run migrate
 ```
+
+This applies each file in `migrations/` in order and records progress in a `schema_migrations` table, so it's safe to run again on an already-migrated database — already-applied files are skipped.
 
 **5. Start the server**
 
@@ -72,6 +65,21 @@ npm start     # production
 ```
 
 The server starts on `http://localhost:3000` by default.
+
+---
+
+## Running with Docker
+
+Requires Docker and Docker Compose.
+
+```bash
+cp .env.example .env
+# fill in JWT_SECRET etc. — DATABASE_URL is overridden by docker-compose for the api container
+
+docker compose up --build
+```
+
+This starts a `postgres:16-alpine` container and the API container. The API container waits for Postgres to report healthy, runs `npm run migrate`, then starts the server on `http://localhost:3000`.
 
 ---
 
@@ -445,6 +453,7 @@ expense-tracker-api/
 │   ├── middleware/
 │   │   ├── auth.middleware.js  # JWT verification, sets req.user
 │   │   ├── errorHandler.js     # Central error handler (AppError, Zod, JWT, pg)
+│   │   ├── rateLimiter.js      # express-rate-limit config — mounted on /api/v1/auth
 │   │   └── validate.js         # Zod validation middleware factory
 │   ├── modules/
 │   │   ├── auth/               # register, login, refresh, logout, me
@@ -455,6 +464,8 @@ expense-tracker-api/
 │   └── utils/
 │       ├── AppError.js         # Custom operational error class
 │       └── asyncHandler.js     # Wraps async controllers to forward errors to Express
+├── scripts/
+│   └── migrate.js              # Applies pending migrations; tracked via schema_migrations table
 ├── migrations/
 │   ├── 001_enable_extensions.sql
 │   ├── 002_create_users.sql
@@ -474,6 +485,9 @@ expense-tracker-api/
 │   ├── ROADMAP.md              # Development stages
 │   └── AI_CONTEXT.md           # AI development context
 ├── server.js                   # Entry point — listen, graceful shutdown
+├── Dockerfile
+├── docker-compose.yml          # api + postgres:16-alpine, healthcheck-gated
+├── .github/workflows/ci.yml    # Runs Jest suite against a Postgres service container
 ├── .env.example
 ├── .env.test.example
 └── package.json
@@ -508,5 +522,6 @@ PostgreSQL
 | `JWT_EXPIRY` | No | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_EXPIRY_DAYS` | No | `7` | Refresh token lifetime in days |
 | `PORT` | No | `3000` | HTTP port |
-| `NODE_ENV` | No | `development` | `development` or `production` |
+| `NODE_ENV` | No | `development` | `development`, `production`, or `test` |
 | `COOKIE_SECRET` | No | — | Cookie signing secret (required for refresh token feature) |
+| `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins |

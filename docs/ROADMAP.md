@@ -57,21 +57,17 @@
 
 ---
 
-## Week 5 — Security & Production Hardening
+## Week 5 — Security & Production Hardening ✅
 
 - `helmet` — security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
-- CORS — whitelist approved origins
-- Rate limiting — `express-rate-limit` on `/auth/*` (10 req/min per IP)
-- Docker — `Dockerfile` + `docker-compose.yml` for one-command local setup
-- CI/CD — GitHub Actions pipeline: run tests on every push to main
+- CORS — `CORS_ORIGIN` allowlist env var; `credentials: true` for the refresh-token cookie
+- Rate limiting — `express-rate-limit` on `/api/v1/auth` (10 req/min per IP, skipped in test env)
+- Docker — `Dockerfile` (node:20-alpine, non-root user) + `docker-compose.yml` (api + postgres:16-alpine)
+- Migration tracking — `scripts/migrate.js` with a `schema_migrations` table, safe to re-run on every container start
+- CI/CD — GitHub Actions (`.github/workflows/ci.yml`): runs the full Jest suite against a Postgres service container on every push/PR to main
 
 ---
 
 ## Future
 
-- Rate limiting on auth endpoints (`express-rate-limit`)
-- Security headers (`helmet`)
-- CORS configuration
-- Docker containerisation
-- CI/CD pipeline
 - Frontend dashboard (React)

@@ -10,6 +10,9 @@ const envSchema = z.object({
   JWT_EXPIRY:                z.string().default("15m"),
   REFRESH_TOKEN_EXPIRY_DAYS: z.coerce.number().default(7),
   COOKIE_SECRET:             z.string().optional(),
+  CORS_ORIGIN: z.string()
+    .default("http://localhost:3000")
+    .transform((val) => val.split(",").map((origin) => origin.trim())),
 });
 
 let parsed;

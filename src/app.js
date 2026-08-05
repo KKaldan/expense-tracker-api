@@ -1,7 +1,11 @@
 const express = require("express");
 const helmet = require("helmet");
+const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const env = require("./config/env");
+const AppError = require("./utils/AppError");
 const errorHandler = require("./middleware/errorHandler");
+const { authRateLimiter } = require("./middleware/rateLimiter");
 const authRoutes = require("./modules/auth/auth.routes");
 const expenseRoutes = require("./modules/expenses/expenses.routes");
 const categoryRoutes = require("./modules/categories/categories.routes");
@@ -10,7 +14,19 @@ const reportRoutes = require("./modules/reports/reports.routes");
 
 const app = express();
 
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow non-browser clients (no Origin header — curl, server-to-server, health checks)
+    if (!origin || env.CORS_ORIGIN.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(AppError.forbidden("Not allowed by CORS", "CORS_NOT_ALLOWED"));
+  },
+  credentials: true,
+};
+
 app.use(helmet());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -18,7 +34,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/auth", authRateLimiter, authRoutes);
 app.use("/api/v1/expenses", expenseRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/budgets", budgetRoutes);

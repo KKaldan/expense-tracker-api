@@ -56,16 +56,20 @@ HTTP Request
 
 Registered in `app.js` in this order:
 
-1. `express.json()` — parse request bodies
-2. `cookie-parser` — parse cookies (required for refresh token reads)
-3. Routes (`/api/v1/auth`, `/api/v1/expenses`, etc.)
-4. 404 handler — catches unmatched routes
-5. `errorHandler` — central 4-arg error handler (must be last)
+1. `helmet()` — security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
+2. `cors(corsOptions)` — origin allowlist checked against `CORS_ORIGIN`; `credentials: true`
+3. `express.json()` — parse request bodies
+4. `cookie-parser` — parse cookies (required for refresh token reads)
+5. Routes (`/api/v1/auth`, `/api/v1/expenses`, etc.) — `authRateLimiter` is mounted specifically on `/api/v1/auth`, ahead of the auth router
+6. 404 handler — catches unmatched routes
+7. `errorHandler` — central 4-arg error handler (must be last)
 
 Per-route middleware applied inside route files:
 
 - `authenticate` (`src/middleware/auth.middleware.js`) — verifies JWT, populates `req.user = { id, email }`
 - `validate(schema)` (`src/middleware/validate.js`) — Zod schema validation factory; replaces `req.body` with the parsed output on success
+
+`authRateLimiter` (`src/middleware/rateLimiter.js`) is not referenced inside `auth.routes.js` — it's mounted in `app.js` ahead of the auth router (see step 5 above), scoped to the `/api/v1/auth` path prefix. 10 req/min per IP; skipped when `NODE_ENV=test`.
 
 ---
 
