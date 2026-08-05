@@ -36,7 +36,7 @@ Phases 1–6 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–008 applied (008 = users updated_at trigger) |
-| Tests | 123 integration tests across 5 suites — all passing |
+| Tests | 127 integration tests across 5 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
 ### 🔄 In Progress — Phase 7: Security & Production Hardening

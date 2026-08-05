@@ -310,7 +310,7 @@ expense-tracker-api/
 │   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (123 tests across 5 suites)
+│   ├── integration/               # Jest + Supertest (127 tests across 5 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — runs migrations before test suite
 ├── migrations/

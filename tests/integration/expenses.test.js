@@ -286,6 +286,44 @@ describe("GET /api/v1/expenses", () => {
     expect(res.body.data).toHaveLength(0);
   });
 
+  it("filters by category_id", async () => {
+    const catRes = await request(app)
+      .post("/api/v1/categories")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Groceries" });
+    const categoryId = catRes.body.data.id;
+
+    await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, category_id: categoryId });
+    await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 10 }); // no category
+
+    const res = await request(app)
+      .get(`${BASE}?category_id=${categoryId}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].category_id).toBe(categoryId);
+  });
+
+  it("sorts results by amount ascending when sort=amount:asc", async () => {
+    await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 50 });
+    await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 10 });
+    await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 30 });
+
+    const res = await request(app)
+      .get(`${BASE}?sort=amount:asc`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const amounts = res.body.data.map((e) => parseFloat(e.amount));
+    expect(amounts).toEqual([...amounts].sort((a, b) => a - b));
+  });
+
   it("returns 401 when no token is provided", async () => {
     const res = await request(app).get(BASE);
     expect(res.status).toBe(401);
@@ -396,6 +434,20 @@ describe("PATCH /api/v1/expenses/:id", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 404 when patching another user's expense", async () => {
+    const otherToken = await getToken({ email: "other@example.com" });
+    const created = await request(app)
+      .post(BASE).set("Authorization", `Bearer ${otherToken}`).send(VALID_EXPENSE);
+    const otherId = created.body.data.id;
+
+    const res = await request(app)
+      .patch(`${BASE}/${otherId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 1 });
+
+    expect(res.status).toBe(404);
+  });
+
   it("returns 401 when no token is provided", async () => {
     const res = await request(app)
       .patch(`${BASE}/${expenseId}`)
@@ -433,6 +485,19 @@ describe("DELETE /api/v1/expenses/:id", () => {
   it("returns 404 for a non-existent expense", async () => {
     const res = await request(app)
       .delete(`${BASE}/00000000-0000-0000-0000-000000000000`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when deleting another user's expense", async () => {
+    const otherToken = await getToken({ email: "other@example.com" });
+    const created = await request(app)
+      .post(BASE).set("Authorization", `Bearer ${otherToken}`).send(VALID_EXPENSE);
+    const otherId = created.body.data.id;
+
+    const res = await request(app)
+      .delete(`${BASE}/${otherId}`)
       .set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(404);
