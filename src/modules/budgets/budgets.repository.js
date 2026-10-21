@@ -11,16 +11,6 @@ async function getBudgetsByUser(userId) {
   return rows;
 }
 
-async function getBudgetById(budgetId) {
-  const { rows } = await db.query(
-    `SELECT id, owner_id, category_id, amount, period, created_at, updated_at
-     FROM budgets
-     WHERE id = $1`,
-    [budgetId]
-  );
-  return rows[0] ?? null;
-}
-
 async function createBudget(userId, { amount, period, category_id }) {
   const { rows } = await db.query(
     `INSERT INTO budgets (owner_id, category_id, amount, period)
@@ -31,7 +21,9 @@ async function createBudget(userId, { amount, period, category_id }) {
   return rows[0];
 }
 
-async function updateBudget(budgetId, updates) {
+// Filters on owner_id as well as id, so null means "doesn't exist or isn't
+// yours" — the ownership check and the write are one statement.
+async function updateBudget(budgetId, userId, updates) {
   const fields = [];
   const values = [];
   let idx = 1;
@@ -40,22 +32,22 @@ async function updateBudget(budgetId, updates) {
   if (updates.period !== undefined)      { fields.push(`period = $${idx++}`);      values.push(updates.period); }
   if (updates.category_id !== undefined) { fields.push(`category_id = $${idx++}`); values.push(updates.category_id); }
 
-  values.push(budgetId);
+  values.push(budgetId, userId);
 
   const { rows } = await db.query(
     `UPDATE budgets
      SET ${fields.join(", ")}
-     WHERE id = $${idx}
+     WHERE id = $${idx} AND owner_id = $${idx + 1}
      RETURNING id, owner_id, category_id, amount, period, created_at, updated_at`,
     values
   );
   return rows[0] ?? null;
 }
 
-async function deleteBudget(budgetId) {
+async function deleteBudget(budgetId, userId) {
   const { rows } = await db.query(
-    `DELETE FROM budgets WHERE id = $1 RETURNING id`,
-    [budgetId]
+    `DELETE FROM budgets WHERE id = $1 AND owner_id = $2 RETURNING id`,
+    [budgetId, userId]
   );
   return rows[0] ?? null;
 }
@@ -103,7 +95,6 @@ async function sumExpensesForPeriod(userId, { from, to, categoryId, isGlobal }) 
 
 module.exports = {
   getBudgetsByUser,
-  getBudgetById,
   createBudget,
   updateBudget,
   deleteBudget,

@@ -9,41 +9,39 @@ async function createCategory(userId, data) {
   return categoriesRepository.createCategory(userId, data);
 }
 
-async function updateCategory(userId, categoryId, updates) {
+/**
+ * Called when an owner-filtered write matched nothing, to pick the right
+ * error. System categories (owner_id === null) are read-only for everyone
+ * → 403. Missing and other users' categories get the same 404, so IDs
+ * can't be probed.
+ */
+async function throwUnwritableCategory(categoryId, systemMessage) {
   const category = await categoriesRepository.getCategoryById(categoryId);
 
-  if (!category) {
-    throw AppError.notFound("Category not found");
+  if (category && category.owner_id === null) {
+    throw AppError.forbidden(systemMessage);
   }
 
-  // System categories (owner_id === null) are read-only for everyone
-  if (category.owner_id === null) {
-    throw AppError.forbidden("System categories cannot be modified");
+  throw AppError.notFound("Category not found");
+}
+
+async function updateCategory(userId, categoryId, updates) {
+  // The write itself enforces ownership; the lookup only runs on failure.
+  const updated = await categoriesRepository.updateCategory(categoryId, userId, updates);
+
+  if (!updated) {
+    await throwUnwritableCategory(categoryId, "System categories cannot be modified");
   }
 
-  if (category.owner_id !== userId) {
-    throw AppError.notFound("Category not found");
-  }
-
-  return categoriesRepository.updateCategory(categoryId, updates);
+  return updated;
 }
 
 async function deleteCategory(userId, categoryId) {
-  const category = await categoriesRepository.getCategoryById(categoryId);
+  const deleted = await categoriesRepository.deleteCategory(categoryId, userId);
 
-  if (!category) {
-    throw AppError.notFound("Category not found");
+  if (!deleted) {
+    await throwUnwritableCategory(categoryId, "System categories cannot be deleted");
   }
-
-  if (category.owner_id === null) {
-    throw AppError.forbidden("System categories cannot be deleted");
-  }
-
-  if (category.owner_id !== userId) {
-    throw AppError.notFound("Category not found");
-  }
-
-  await categoriesRepository.deleteCategory(categoryId);
 }
 
 /**

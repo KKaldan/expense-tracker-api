@@ -13,33 +13,26 @@ async function createBudget(userId, data) {
 }
 
 async function updateBudget(userId, budgetId, updates) {
-  const budget = await budgetsRepository.getBudgetById(budgetId);
-
-  if (!budget) {
-    throw AppError.notFound("Budget not found");
-  }
-
-  if (budget.owner_id !== userId) {
-    throw AppError.notFound("Budget not found");
-  }
-
   await assertCategoryUsable(userId, updates.category_id);
 
-  return budgetsRepository.updateBudget(budgetId, updates);
+  // The UPDATE filters on owner_id, so null means "doesn't exist or isn't
+  // yours" — no separate ownership check, and no window for the row to
+  // disappear between a check and the write.
+  const updated = await budgetsRepository.updateBudget(budgetId, userId, updates);
+
+  if (!updated) {
+    throw AppError.notFound("Budget not found");
+  }
+
+  return updated;
 }
 
 async function deleteBudget(userId, budgetId) {
-  const budget = await budgetsRepository.getBudgetById(budgetId);
+  const deleted = await budgetsRepository.deleteBudget(budgetId, userId);
 
-  if (!budget) {
+  if (!deleted) {
     throw AppError.notFound("Budget not found");
   }
-
-  if (budget.owner_id !== userId) {
-    throw AppError.notFound("Budget not found");
-  }
-
-  await budgetsRepository.deleteBudget(budgetId);
 }
 
 /**
