@@ -361,8 +361,8 @@ JWT_SECRET=replace-with-256-bit-random-secret
 JWT_EXPIRY=15m
 REFRESH_TOKEN_EXPIRY_DAYS=7
 
-# Cookie
-COOKIE_SECRET=replace-with-cookie-secret
+# CORS — comma-separated list of allowed browser origins
+CORS_ORIGIN=http://localhost:3000
 ```
 
 ---

@@ -148,7 +148,7 @@ Create a new user account.
 ---
 
 #### `POST /auth/login`
-Authenticate and receive an access token.
+Authenticate and receive an access token. A refresh token is also set as an `httpOnly` cookie (`refresh_token`, 7-day lifetime).
 
 **Request body:**
 ```json
@@ -523,5 +523,4 @@ PostgreSQL
 | `REFRESH_TOKEN_EXPIRY_DAYS` | No | `7` | Refresh token lifetime in days |
 | `PORT` | No | `3000` | HTTP port |
 | `NODE_ENV` | No | `development` | `development`, `production`, or `test` |
-| `COOKIE_SECRET` | No | — | Cookie signing secret (required for refresh token feature) |
 | `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins |

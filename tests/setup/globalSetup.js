@@ -7,16 +7,7 @@ const { Pool } = require("pg");
 
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env.test") });
 
-const MIGRATION_FILES = [
-  "001_enable_extensions.sql",
-  "002_create_users.sql",
-  "003_create_refresh_tokens.sql",
-  "004_create_categories.sql",
-  "005_create_expenses.sql",
-  "006_create_budgets.sql",
-  "007_add_budgets_unique_constraints.sql",
-  "008_add_users_updated_at_trigger.sql",
-];
+const MIGRATIONS_DIR = path.resolve(__dirname, "../../migrations");
 
 module.exports = async function globalSetup() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -31,10 +22,15 @@ module.exports = async function globalSetup() {
     DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
   `);
 
-  // Rebuild schema by running all migrations in order.
-  const migrationsDir = path.resolve(__dirname, "../../migrations");
-  for (const file of MIGRATION_FILES) {
-    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+  // Rebuild schema by running every migration in filename order — same
+  // discovery rule as scripts/migrate.js, so new migrations are picked up
+  // automatically.
+  const files = fs.readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  for (const file of files) {
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
     await pool.query(sql);
   }
 
