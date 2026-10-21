@@ -10,16 +10,20 @@ require("dotenv").config({ path: path.resolve(__dirname, "../../.env.test") });
 const MIGRATIONS_DIR = path.resolve(__dirname, "../../migrations");
 
 module.exports = async function globalSetup() {
+  // Guard against wiping a real database if DATABASE_URL is misconfigured.
+  const dbName = new URL(process.env.DATABASE_URL).pathname.slice(1);
+  if (!dbName.endsWith("_test")) {
+    throw new Error(`Refusing to reset "${dbName}" — test database name must end in "_test"`);
+  }
+
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-  // Drop all tables in reverse dependency order for a clean slate.
+  // Drop and recreate the whole schema for a clean slate. Removes every
+  // table, function, and extension regardless of what migrations created,
+  // so new migrations never need a matching entry here.
   await pool.query(`
-    DROP TABLE IF EXISTS budgets          CASCADE;
-    DROP TABLE IF EXISTS expenses         CASCADE;
-    DROP TABLE IF EXISTS categories       CASCADE;
-    DROP TABLE IF EXISTS refresh_tokens   CASCADE;
-    DROP TABLE IF EXISTS users            CASCADE;
-    DROP FUNCTION IF EXISTS set_updated_at() CASCADE;
+    DROP SCHEMA public CASCADE;
+    CREATE SCHEMA public;
   `);
 
   // Rebuild schema by running every migration in filename order — same
