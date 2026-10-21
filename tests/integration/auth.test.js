@@ -78,6 +78,30 @@ describe("POST /api/v1/auth/register", () => {
     );
   });
 
+  it("accepts a password of exactly 72 bytes", async () => {
+    const res = await registerUser({ password: "a".repeat(72) });
+    expect(res.status).toBe(201);
+  });
+
+  it("returns 400 when password is longer than 72 bytes", async () => {
+    const res = await registerUser({ password: "a".repeat(73) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "password", message: "Password must be 72 bytes or fewer" },
+    ]);
+  });
+
+  it("counts password length in bytes, not characters", async () => {
+    // 19 emoji = 38 UTF-16 characters but 76 UTF-8 bytes
+    const res = await registerUser({ password: "🔒".repeat(19) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "password", message: "Password must be 72 bytes or fewer" },
+    ]);
+  });
+
   it("returns 400 when name is shorter than 2 characters", async () => {
     const res = await registerUser({ name: "A" });
 
