@@ -24,15 +24,13 @@ function errorHandler(err, _req, res, _next) {
   }
 
   // --- 2a. Zod validation errors ---
-  // Zod v4 renamed .errors to .issues; support both for compatibility.
   if (err.name === "ZodError") {
-    const issues = err.issues ?? err.errors ?? [];
     return res.status(400).json({
       success: false,
       error: {
         code: "VALIDATION_ERROR",
         message: "Validation failed",
-        details: issues.map((e) => ({
+        details: err.issues.map((e) => ({
           field: e.path.join("."),
           message: e.message,
         })),

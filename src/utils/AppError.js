@@ -36,7 +36,6 @@ class AppError extends Error {
 
     this.statusCode = statusCode;
     this.code = code ?? AppError._defaultCode(statusCode);
-    this.status = statusCode >= 400 && statusCode < 500 ? 'fail' : 'error';
     this.isOperational = true;
 
     // Capture a clean stack trace that starts at the call site,
