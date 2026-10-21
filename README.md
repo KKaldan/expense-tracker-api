@@ -497,7 +497,8 @@ expense-tracker-api/
 │   ├── 005_create_expenses.sql
 │   ├── 006_create_budgets.sql
 │   ├── 007_add_budgets_unique_constraints.sql
-│   └── 008_add_users_updated_at_trigger.sql
+│   ├── 008_add_users_updated_at_trigger.sql
+│   └── 009_users_timestamps_not_null.sql
 ├── tests/
 │   ├── integration/            # Jest + Supertest tests (128 tests across 5 suites)
 │   ├── helpers/                # Shared test utilities

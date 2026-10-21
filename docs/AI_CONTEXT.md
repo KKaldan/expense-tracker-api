@@ -35,7 +35,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Expenses | Full CRUD — pagination, date-range filter, category filter, multi-column sort, budget_status |
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
-| Migrations | 001–008 applied (008 = users updated_at trigger) |
+| Migrations | 001–009 applied (009 = users timestamps NOT NULL) |
 | Tests | 128 integration tests across 5 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
