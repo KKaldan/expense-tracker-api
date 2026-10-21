@@ -95,6 +95,9 @@ describe("POST /api/v1/budgets", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount is required" },
+    ]);
   });
 
   it("returns 400 when period is missing", async () => {
@@ -105,6 +108,9 @@ describe("POST /api/v1/budgets", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual([
+      { field: "period", message: "Period is required" },
+    ]);
   });
 
   it("returns 400 when period is invalid", async () => {
@@ -115,6 +121,9 @@ describe("POST /api/v1/budgets", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual([
+      { field: "period", message: "Period must be 'monthly' or 'yearly'" },
+    ]);
   });
 
   it("returns 400 when amount is zero or negative", async () => {

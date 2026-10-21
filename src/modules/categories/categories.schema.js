@@ -2,7 +2,7 @@ const { z } = require("zod");
 
 const createCategorySchema = z.object({
   name: z
-    .string({ required_error: "Name is required" })
+    .string({ error: (iss) => iss.input === undefined ? "Name is required" : "Name must be a string" })
     .min(1, { message: "Name cannot be empty" })
     .max(100, { message: "Name must be 100 characters or fewer" }),
 

@@ -38,6 +38,21 @@ describe("POST /api/v1/auth/register", () => {
     expect(res.body.error.code).toBe("CONFLICT");
   });
 
+  it("stores the email lowercased and trimmed", async () => {
+    const res = await registerUser({ email: "  Mixed.Case@Example.COM " });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.email).toBe("mixed.case@example.com");
+  });
+
+  it("returns 409 when the email differs from an existing one only by case", async () => {
+    await registerUser();
+    const res = await registerUser({ email: DEFAULT_USER.email.toUpperCase() });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("CONFLICT");
+  });
+
   it("returns 400 with validation detail on invalid email", async () => {
     const res = await registerUser({ email: "not-an-email" });
 
@@ -118,6 +133,13 @@ describe("POST /api/v1/auth/login", () => {
     // Same 401 as wrong password — must not reveal whether the account exists
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
+  });
+
+  it("logs in when the email is typed with different case", async () => {
+    const res = await loginUser({ email: DEFAULT_USER.email.toUpperCase() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.user.email).toBe(DEFAULT_USER.email);
   });
 
   it("returns 400 when fields are missing", async () => {

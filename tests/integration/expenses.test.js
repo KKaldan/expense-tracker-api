@@ -82,9 +82,21 @@ describe("POST /api/v1/expenses", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
-    expect(res.body.error.details).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: "amount" })])
-    );
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount is required" },
+    ]);
+  });
+
+  it("returns 400 with a type message when amount is not a number", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: "42.50" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount must be a number" },
+    ]);
   });
 
   it("returns 400 when date is missing", async () => {
@@ -96,9 +108,9 @@ describe("POST /api/v1/expenses", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
-    expect(res.body.error.details).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: "date" })])
-    );
+    expect(res.body.error.details).toEqual([
+      { field: "date", message: "Date is required" },
+    ]);
   });
 
   it("returns 400 when amount is zero or negative", async () => {

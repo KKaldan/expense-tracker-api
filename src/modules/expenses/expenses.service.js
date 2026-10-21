@@ -47,17 +47,18 @@ async function getExpenses(userId, filters) {
 
 async function updateExpense(userId, expenseId, updates) {
 
-  const existing = await expensesRepository.getExpenseById(expenseId, userId);
+  await assertCategoryUsable(userId, updates.category_id);
 
-  if (!existing) {
+  // The UPDATE filters on owner_id, so null means "doesn't exist or isn't
+  // yours" — no separate existence check, and no window for the row to
+  // disappear between a check and the write.
+  const updated = await expensesRepository.updateExpense(expenseId, userId, updates);
+
+  if (!updated) {
     throw AppError.notFound("Expense not found");
   }
 
-  await assertCategoryUsable(userId, updates.category_id);
-
-  const updated = await expensesRepository.updateExpense(expenseId, userId, updates);
-
-  // Use updated values where provided, fall back to existing values for unchanged fields
+  // RETURNING gives the full post-update row, so unchanged fields are included
   const budget_status = await checkBudgetStatus(userId, {
     category_id: updated.category_id,
     date: updated.date,

@@ -108,6 +108,9 @@ describe("POST /api/v1/categories", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual([
+      { field: "name", message: "Name is required" },
+    ]);
   });
 
   it("returns 400 when color is not a valid hex code", async () => {

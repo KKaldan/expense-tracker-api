@@ -3,7 +3,7 @@ const { isoDate } = require("../../utils/isoDate");
 
 const createExpenseSchema = z.object({
   amount: z
-    .number({ required_error: "Amount is required", invalid_type_error: "Amount must be a number" })
+    .number({ error: (iss) => iss.input === undefined ? "Amount is required" : "Amount must be a number" })
     .positive({ message: "Amount must be greater than 0" }),
 
   currency: z
@@ -31,7 +31,7 @@ const createExpenseSchema = z.object({
 // otherwise an empty body would get { currency: "GBP" } injected and pass.
 const updateExpenseSchema = z.object({
   amount: z
-    .number({ invalid_type_error: "Amount must be a number" })
+    .number({ error: "Amount must be a number" })
     .positive({ message: "Amount must be greater than 0" })
     .optional(),
 

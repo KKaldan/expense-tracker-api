@@ -24,7 +24,7 @@ function isCalendarDate(value) {
  */
 function isoDate(label) {
   return z
-    .string()
+    .string({ error: (iss) => iss.input === undefined ? `${label} is required` : `${label} must be a string` })
     .regex(/^\d{4}-\d{2}-\d{2}$/, { message: `${label} must be in YYYY-MM-DD format`, abort: true })
     .refine(isCalendarDate, { message: `${label} must be a real calendar date` });
 }
