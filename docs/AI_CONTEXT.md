@@ -36,7 +36,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–010 applied (010 = refresh token families) |
-| Tests | 154 integration tests across 6 suites — all passing |
+| Tests | 159 integration tests across 6 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
 ### ✅ Phase 7: Security & Production Hardening — Complete
@@ -69,11 +69,17 @@ Non-obvious decisions a fresh reader must know — do not re-debate these withou
 
 **Date validation:** every `YYYY-MM-DD` field uses `isoDate(label)` from `src/utils/isoDate.js` — a regex check (with `abort: true`, so a malformed value yields one error) followed by a real-calendar check. Use it for any new date field rather than a bare regex.
 
+**Amount validation:** every money field uses `amount()` from `src/utils/amount.js` — positive, `multipleOf(0.01)`, max `9999999999.99`, matching `NUMERIC(12,2)`. Without it Postgres rounds `0.001` to `0.00` (failing `CHECK amount > 0`) and overflows on `1e10`, both of which were 500s. Over-precise values are rejected, not rounded — so a JS client sending `0.1 + 0.2` gets a 400, which is deliberate.
+
+**UTC month boundaries:** "current month" (report defaults, the monthly-trend window) is computed in JS with UTC getters. Never use `CURRENT_DATE` / `NOW()` for month boundaries in SQL — they follow the DB session time zone (the dev DB is `Europe/London`), which disagreed with the JS side near month boundaries and gave monthly-trend an extra month.
+
+**Stable pagination:** `buildOrderBy()` always appends `id` as a final tiebreaker. Without a unique last key, rows that tie on every sort column have no defined order and LIMIT/OFFSET pages can repeat or skip them.
+
 **Zod 4 error messages:** Zod 4 silently ignores v3's `required_error` / `invalid_type_error`. Use `{ error: (iss) => iss.input === undefined ? "X is required" : "X must be a ..." }`. Check-level messages (`.min(…, { message })`) still work.
 
 **Email normalisation:** the shared `email` schema in `auth.schema.js` trims and lowercases before validating, for both register and login. The DB unique index on `users.email` is case-sensitive, so this normalisation is what prevents case-only duplicates.
 
-**pg error mapping:** `errorHandler.js` maps `23505` → 409, `23503` → 422 `INVALID_REFERENCE`, `22P02`/`22008` → 400 `BAD_REQUEST` (not `VALIDATION_ERROR`, which promises a `details` array the DB error can't provide). These are backstops — validate in schemas/services first.
+**pg error mapping:** `errorHandler.js` maps `23505` → 409, `23503` → 422 `INVALID_REFERENCE`, `22P02`/`22008`/`22003`/`23514` → 400 `BAD_REQUEST` (not `VALIDATION_ERROR`, which promises a `details` array the DB error can't provide). These are backstops — validate in schemas/services first.
 
 **JWT & proxy config:** `jwt.verify` pins `algorithms: ["HS256"]`; `env.js` requires a 32+ char `JWT_SECRET` and rejects the `.env.example` placeholder. `TRUST_PROXY` (default `0`) feeds `app.set("trust proxy")` — only raise it to match the real number of proxies, or clients can spoof their IP past the rate limiter.
 

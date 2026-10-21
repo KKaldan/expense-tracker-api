@@ -66,7 +66,7 @@ Registered in `app.js` in this order (after `app.set("trust proxy", TRUST_PROXY)
 
 Per-route middleware applied inside route files:
 
-- `authenticate` (`src/middleware/auth.middleware.js`) — verifies JWT (algorithm pinned to HS256), populates `req.user = { id, email }`
+- `authenticate` (`src/middleware/auth.middleware.js`) — verifies JWT (algorithm pinned to HS256), populates `req.user = { id, email, iat, exp }`
 - `validate(schema)` (`src/middleware/validate.js`) — Zod schema validation factory; replaces `req.body` with the parsed output on success
 
 `authRateLimiter` (`src/middleware/rateLimiter.js`) is not referenced inside `auth.routes.js` — it's mounted in `app.js` ahead of the auth router (see step 5 above), scoped to the `/api/v1/auth` path prefix. 10 req/min per IP; skipped when `NODE_ENV=test`.
@@ -145,10 +145,11 @@ errorHandler.js (central 4-arg Express handler)
     ├── pg error 23505            → 409 CONFLICT           (unique violation)
     ├── pg error 23503            → 422 INVALID_REFERENCE  (FK violation — backstop)
     ├── pg error 22P02 / 22008    → 400 BAD_REQUEST        (malformed UUID / date — backstop)
+    ├── pg error 22003 / 23514    → 400 BAD_REQUEST        (numeric overflow / CHECK violation — backstop)
     └── Unknown                   → 500 INTERNAL_SERVER_ERROR (logged server-side; never sent to client)
 ```
 
-The pg mappings are backstops. Services validate first — e.g. `assertCategoryUsable()` in `categories.service.js` rejects a `category_id` the user can't use with `422 INVALID_CATEGORY` before any write, and the shared `isoDate()` schema (`src/utils/isoDate.js`) rejects impossible dates at validation time.
+The pg mappings are backstops. Services validate first — e.g. `assertCategoryUsable()` in `categories.service.js` rejects a `category_id` the user can't use with `422 INVALID_CATEGORY` before any write, the shared `isoDate()` schema (`src/utils/isoDate.js`) rejects impossible dates at validation time, and the shared `amount()` schema (`src/utils/amount.js`) rejects amounts that don't fit `NUMERIC(12,2)`.
 
 ---
 

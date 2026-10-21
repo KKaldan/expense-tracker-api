@@ -77,6 +77,10 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 **Bugs fixed**
 - Cross-user data leak: expenses and budgets accepted another user's `category_id`, and `by-category` reports exposed that category's name. Now rejected with `422 INVALID_CATEGORY`; the report join is owner-filtered as defence in depth
 - `500`s on bad input: malformed UUIDs, nonexistent foreign keys, and impossible dates (`2026-02-31`) now return `400` / `422`
+- `500`s on amounts that don't fit `NUMERIC(12,2)` (`0.001`, `1e10`) — now rejected with `400`
+- Unstable pagination: rows tied on the sort column could repeat or vanish across pages — `id` is now always the final sort key
+- Monthly trend could return an extra month near month boundaries when the DB time zone wasn't UTC — window now computed entirely in UTC
+- Docker Compose ran node under `sh`, so `SIGTERM` never reached it and graceful shutdown never ran — now `exec`s node
 
 **Correctness**
 - Zod 4 had silently dropped the `required_error` / `invalid_type_error` options — custom messages restored via the `error` option
@@ -91,7 +95,7 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 - Refresh-token reuse detection with token families (migration 010) — a replayed token revokes that one session
 - Docker Compose forces `NODE_ENV=production`
 
-Integration tests: 154 across 6 suites — all passing
+Integration tests: 159 across 6 suites — all passing
 
 ---
 

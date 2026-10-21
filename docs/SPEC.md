@@ -64,7 +64,9 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 - Full CRUD: create, read (single + paginated list), partial update (`PATCH`), delete
 - List endpoint supports pagination, ISO 8601 date-range filtering, category filter, and multi-column sort
+- `amount` must fit `NUMERIC(12,2)` — positive, at most 2 decimal places, at most `9999999999.99` — and is rejected with `400` otherwise, never rounded (also applies to budgets)
 - `date` field is `DATE` (user intent), not a server timestamp; it must be a real calendar date
+- List results always end with `id` as a sort tiebreaker, so pagination is stable when rows tie on the requested sort
 - `category_id` must be a system category or one of the user's own — anything else is rejected with `422 INVALID_CATEGORY` (also applies to budgets)
 - Deleting a category sets `category_id = NULL` on linked expenses rather than cascade-deleting them
 
@@ -88,6 +90,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 - **Monthly trend** — configurable lookback window (default 6 months) with month-over-month delta
 - All report endpoints execute a single aggregated SQL query — no N+1 patterns
 - Amounts are summed without currency conversion; reports and budget checks assume each user records expenses in a single currency
+- "Current month" (report defaults, the monthly-trend window) is computed in UTC, independent of the database time zone
 
 ---
 
@@ -314,10 +317,12 @@ expense-tracker-api/
 │   │   └── errorHandler.js        # Central 4-arg error handler
 │   ├── utils/
 │   │   ├── AppError.js            # Custom error class with statusCode
-│   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
+│   │   ├── amount.js              # Shared Zod schema for NUMERIC(12,2) amounts
+│   │   ├── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
+│   │   └── isoDate.js             # Shared Zod schema for real calendar dates
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (154 tests across 6 suites)
+│   ├── integration/               # Jest + Supertest (159 tests across 6 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/
@@ -358,7 +363,7 @@ expense-tracker-api/
 - Central `errorHandler.js` distinguishes operational `AppError` instances from unexpected bugs
 - Unexpected errors return `500` with a generic message in every environment; stack traces are only logged server-side
 - Zod validation failures mapped to `400` with structured field-level error detail
-- Known PostgreSQL errors are mapped instead of surfacing as `500`: `23505` → `409 CONFLICT`, `23503` → `422 INVALID_REFERENCE`, `22P02` / `22008` → `400 BAD_REQUEST`
+- Known PostgreSQL errors are mapped instead of surfacing as `500`: `23505` → `409 CONFLICT`, `23503` → `422 INVALID_REFERENCE`, `22P02` / `22008` / `22003` / `23514` → `400 BAD_REQUEST`
 
 ### 6.4 Environment Variables
 

@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (154 integration tests) |
+| Testing | Jest + Supertest (159 integration tests) |
 
 ## Prerequisites
 
@@ -135,6 +135,18 @@ Authorization: Bearer <access_token>
 
 ---
 
+### Health Check
+
+#### `GET /health`
+Liveness probe, mounted at the root (not under `/api/v1`) and unauthenticated.
+
+**Response `200`:**
+```json
+{ "status": "ok" }
+```
+
+---
+
 ### Authentication
 
 #### `POST /auth/register`
@@ -247,7 +259,7 @@ Create a new expense.
 }
 ```
 
-`date` must be a real calendar date (`2026-02-31` is rejected). `category_id`, if given, must be a system category or one of your own — otherwise `422 INVALID_CATEGORY`.
+`amount` must be greater than 0, have at most 2 decimal places, and be no more than `9999999999.99`. `date` must be a real calendar date (`2026-02-31` is rejected). `category_id`, if given, must be a system category or one of your own — otherwise `422 INVALID_CATEGORY`.
 
 **Response `201`:** Returns the created expense object including `budget_status`.
 
@@ -395,7 +407,7 @@ Create a budget.
 }
 ```
 
-`period` must be `"monthly"` or `"yearly"`. Only one budget per user per category per period is allowed (returns `409` on duplicate). `category_id` follows the same rule as on expenses (`422 INVALID_CATEGORY` if it isn't yours).
+`amount` follows the same rules as on expenses. `period` must be `"monthly"` or `"yearly"`. Only one budget per user per category per period is allowed (returns `409` on duplicate). `category_id` follows the same rule as on expenses (`422 INVALID_CATEGORY` if it isn't yours).
 
 **Response `201`:** Returns the created budget object.
 
@@ -421,6 +433,8 @@ Delete a budget. Returns `404` if not found.
 ### Reports
 
 `summary` and `by-category` accept optional `from` / `to` date parameters (`YYYY-MM-DD`). When omitted, they default to the current calendar month. `from` must be on or before `to`.
+
+"Current month" — the default range here and the end of the `monthly-trend` window — is the current month in UTC, so in the first hour of a month during BST, UK users still see the previous month.
 
 Amounts are summed as stored, without currency conversion — reports (and budget checks) assume a user records expenses in one currency.
 
@@ -464,7 +478,7 @@ Spend and percentage share per category for a date range. Results ordered by spe
 ---
 
 #### `GET /reports/monthly-trend` *(auth required)*
-Month-by-month totals for a configurable lookback window. All months in the window are returned even if spend is zero.
+Month-by-month totals for a configurable lookback window ending with the current month. All months in the window are returned even if spend is zero.
 
 **Query parameters:**
 
@@ -509,7 +523,9 @@ expense-tracker-api/
 │   │   └── reports/            # summary, by-category, monthly-trend
 │   └── utils/
 │       ├── AppError.js         # Custom operational error class
-│       └── asyncHandler.js     # Wraps async controllers to forward errors to Express
+│       ├── amount.js           # Shared Zod schema for NUMERIC(12,2) money amounts
+│       ├── asyncHandler.js     # Wraps async controllers to forward errors to Express
+│       └── isoDate.js          # Shared Zod schema for real YYYY-MM-DD calendar dates
 ├── scripts/
 │   └── migrate.js              # Applies pending migrations; tracked via schema_migrations table
 ├── migrations/
@@ -524,7 +540,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (154 tests across 6 suites)
+│   ├── integration/            # Jest + Supertest tests (159 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/
