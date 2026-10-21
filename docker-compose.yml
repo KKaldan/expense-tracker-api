@@ -29,7 +29,10 @@ services:
       NODE_ENV: production
     ports:
       - "3000:3000"
-    command: sh -c "npm run migrate && node server.js"
+    # exec replaces the shell with node, so node becomes PID 1 and receives
+    # SIGTERM from `docker compose down` — sh would not forward it, and the
+    # graceful shutdown in server.js would never run.
+    command: sh -c "npm run migrate && exec node server.js"
 
 volumes:
   pgdata:
