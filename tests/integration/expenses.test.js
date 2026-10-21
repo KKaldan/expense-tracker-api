@@ -596,6 +596,17 @@ describe("PATCH /api/v1/expenses/:id", () => {
     expect(res.body.data.description).toBe("Only this changed");
   });
 
+  it("clears the description when it is sent as null", async () => {
+    const res = await request(app)
+      .patch(`${BASE}/${expenseId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ description: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.description).toBeNull();
+    expect(parseFloat(res.body.data.amount)).toBe(42.50);
+  });
+
   it("returns 400 when the request body is empty", async () => {
     const res = await request(app)
       .patch(`${BASE}/${expenseId}`)

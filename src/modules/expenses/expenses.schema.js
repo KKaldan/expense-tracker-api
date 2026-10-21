@@ -17,6 +17,7 @@ const createExpenseSchema = z.object({
   description: z
     .string()
     .max(500, { message: "Description must be 500 characters or fewer" })
+    .nullable()
     .optional(),
 
   category_id: z
@@ -36,7 +37,12 @@ const updateExpenseSchema = z.object({
 
   currency: currency.optional(),
 
-  description: z.string().max(500).optional(),
+  // null clears the description; omitting it leaves it unchanged.
+  description: z
+    .string()
+    .max(500, { message: "Description must be 500 characters or fewer" })
+    .nullable()
+    .optional(),
 
   category_id: z
     .string()

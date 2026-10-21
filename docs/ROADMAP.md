@@ -89,6 +89,7 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 - `updateExpense` no longer crashes if the row disappears between check and write; budget and category updates/deletes now enforce ownership in the write itself too
 - Invalid `page`, `limit`, and `months` return `400` instead of silently falling back to defaults
 - Category and user names trimmed; currency must be three letters
+- `PATCH` can clear optional fields by sending `null` (expense `description`, category `icon` / `color`); the icon limit is raised to 32 so combined emoji like 👨‍👩‍👧‍👦 fit
 
 **Hardening**
 - JWT verification pinned to HS256; `JWT_SECRET` must be 32+ characters
@@ -99,7 +100,7 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 - Refresh-token reuse detection with token families (migration 010) — a replayed token revokes that one session
 - Docker Compose forces `NODE_ENV=production`
 
-Integration tests: 173 across 6 suites — all passing
+Integration tests: 177 across 6 suites — all passing
 
 ---
 

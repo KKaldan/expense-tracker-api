@@ -325,7 +325,7 @@ expense-tracker-api/
 │   │   └── isoDate.js             # Shared Zod schema for real calendar dates
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (173 tests across 6 suites)
+│   ├── integration/               # Jest + Supertest (177 tests across 6 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/

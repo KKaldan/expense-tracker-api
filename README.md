@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (173 integration tests) |
+| Testing | Jest + Supertest (177 integration tests) |
 
 ## Prerequisites
 
@@ -308,7 +308,7 @@ Fetch a single expense by ID. Returns `404` if not found or not owned by the cal
 ---
 
 #### `PATCH /expenses/:id` *(auth required)*
-Partially update an expense. All fields optional; at least one required.
+Partially update an expense. All fields optional; at least one required. Omitted fields are left unchanged; send `"description": null` to clear the description (or `"category_id": null` to uncategorise it).
 
 **Request body:**
 ```json
@@ -364,14 +364,14 @@ Create a custom category.
 }
 ```
 
-`name` is trimmed, so `"Hobbies "` is the same name as `"Hobbies"` (`409` if it already exists). `icon` and `color` are optional. `color` must be a valid hex code (e.g. `#FF5733`).
+`name` is trimmed, so `"Hobbies "` is the same name as `"Hobbies"` (`409` if it already exists). `icon` and `color` are optional. `icon` is an emoji or short identifier, up to 32 characters (counted as UTF-16 code units, so a combined emoji like 👨‍👩‍👧‍👦 counts as 11). `color` must be a valid hex code (e.g. `#FF5733`).
 
 **Response `201`:** Returns the created category object.
 
 ---
 
 #### `PATCH /categories/:id` *(auth required)*
-Update a custom category. All fields optional; at least one required. Returns `403` for system categories, `404` for another user's categories.
+Update a custom category. All fields optional; at least one required. Send `"icon": null` or `"color": null` to clear them. Returns `403` for system categories, `404` for another user's categories.
 
 ---
 
@@ -546,7 +546,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (173 tests across 6 suites)
+│   ├── integration/            # Jest + Supertest tests (177 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/

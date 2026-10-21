@@ -159,6 +159,28 @@ describe("POST /api/v1/categories", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("accepts a multi-codepoint emoji as the icon", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Family", icon: "👨‍👩‍👧‍👦" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.icon).toBe("👨‍👩‍👧‍👦");
+  });
+
+  it("returns 400 when icon is over 32 characters", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Long Icon", icon: "x".repeat(33) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "icon", message: "Icon must be 32 characters or fewer" },
+    ]);
+  });
+
   it("returns 409 when a category with the same name already exists for this user", async () => {
     await request(app)
       .post(BASE)
@@ -206,6 +228,23 @@ describe("PATCH /api/v1/categories/:id", () => {
     expect(res.body.data.name).toBe("Updated Name");
     // color was not sent — should be unchanged
     expect(res.body.data.color).toBe("#AABBCC");
+  });
+
+  it("clears icon and color when they are sent as null", async () => {
+    await request(app)
+      .patch(`${BASE}/${categoryId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ icon: "🎸" });
+
+    const res = await request(app)
+      .patch(`${BASE}/${categoryId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ icon: null, color: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.icon).toBeNull();
+    expect(res.body.data.color).toBeNull();
+    expect(res.body.data.name).toBe("Original Name");
   });
 
   it("returns 400 when the request body is empty", async () => {
