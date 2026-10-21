@@ -12,7 +12,12 @@ const dateRangeSchema = z
   });
 
 const monthlyTrendQuerySchema = z.object({
-  months: z.coerce.number().int().min(1).max(24).catch(6),
+  months: z.coerce
+    .number({ error: "months must be a number" })
+    .int({ message: "months must be a whole number" })
+    .min(1, { message: "months must be between 1 and 24" })
+    .max(24, { message: "months must be between 1 and 24" })
+    .default(6),
 });
 
 module.exports = { dateRangeSchema, monthlyTrendQuerySchema };

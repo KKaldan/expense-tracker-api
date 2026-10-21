@@ -51,12 +51,20 @@ const updateExpenseSchema = z.object({
   { message: "At least one field must be provided" }
 );
 
-// Query parameters for GET /expenses.
-// .catch(n) is used instead of .default(n) because z.coerce.number() in Zod v4
-// converts undefined to NaN before .default() can apply — .catch() handles any failure.
+// Query parameters for GET /expenses. Missing values take the default;
+// invalid ones (e.g. limit=500, page=abc) are a 400, not silently replaced.
 const listExpensesQuerySchema = z.object({
-  page: z.coerce.number().int().positive().catch(1),
-  limit: z.coerce.number().int().min(1).max(100).catch(20),
+  page: z.coerce
+    .number({ error: "page must be a number" })
+    .int({ message: "page must be a whole number" })
+    .min(1, { message: "page must be at least 1" })
+    .default(1),
+  limit: z.coerce
+    .number({ error: "limit must be a number" })
+    .int({ message: "limit must be a whole number" })
+    .min(1, { message: "limit must be at least 1" })
+    .max(100, { message: "limit must be at most 100" })
+    .default(20),
   from: isoDate("from").optional(),
   to: isoDate("to").optional(),
   category_id: z.string().uuid({ message: "category_id must be a valid UUID" }).optional(),

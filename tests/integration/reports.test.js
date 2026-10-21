@@ -293,13 +293,26 @@ describe("GET /api/v1/reports/monthly-trend", () => {
     expect(res.body.data).toHaveLength(3);
   });
 
-  it("falls back to 6 months for an invalid months value", async () => {
+  it("returns 400 for a non-numeric months value", async () => {
     const res = await request(app)
       .get(`${BASE}/monthly-trend?months=abc`)
       .set("Authorization", `Bearer ${token}`);
 
-    expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(6);
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "months", message: "months must be a number" },
+    ]);
+  });
+
+  it("returns 400 when months is out of range", async () => {
+    const res = await request(app)
+      .get(`${BASE}/monthly-trend?months=25`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "months", message: "months must be between 1 and 24" },
+    ]);
   });
 
   it("delta is null for the first month and a number for subsequent months", async () => {

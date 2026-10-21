@@ -354,6 +354,28 @@ describe("GET /api/v1/expenses", () => {
     expect(res.body.meta.limit).toBe(2);
   });
 
+  it("returns 400 when limit exceeds 100", async () => {
+    const res = await request(app)
+      .get(`${BASE}?limit=500`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "limit", message: "limit must be at most 100" },
+    ]);
+  });
+
+  it("returns 400 when page is less than 1", async () => {
+    const res = await request(app)
+      .get(`${BASE}?page=0`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "page", message: "page must be at least 1" },
+    ]);
+  });
+
   it("filters by date range", async () => {
     await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
       .send({ ...VALID_EXPENSE, date: "2026-01-15" });
