@@ -65,16 +65,20 @@ async function getByCategory(userId, { from, to }) {
 }
 
 async function getMonthlyTrend(userId, { months }) {
+  // Both ends of the window are computed here in UTC, like currentMonthRange().
+  // Using CURRENT_DATE for the end would follow the DB session's time zone, so
+  // near a month boundary the series could gain an extra month.
   const now = new Date();
-  const fromDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1))
-    .toISOString()
-    .slice(0, 10);
+  const monthStartUTC = (offset) =>
+    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1)).toISOString().slice(0, 10);
+  const fromDate = monthStartUTC(months - 1);
+  const toDate = monthStartUTC(0);
 
   const { rows } = await db.query(
     `WITH months AS (
        SELECT generate_series(
-         date_trunc('month', $2::date::timestamp),
-         date_trunc('month', CURRENT_DATE::timestamp),
+         $2::date::timestamp,
+         $3::date::timestamp,
          '1 month'
        ) AS month_start
      ),
@@ -97,7 +101,7 @@ async function getMonthlyTrend(userId, { months }) {
      FROM months m
      LEFT JOIN monthly_totals mt ON mt.month_start = m.month_start
      ORDER BY m.month_start ASC`,
-    [userId, fromDate]
+    [userId, fromDate, toDate]
   );
 
   return rows;
