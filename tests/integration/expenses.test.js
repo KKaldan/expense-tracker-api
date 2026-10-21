@@ -12,7 +12,20 @@ const VALID_EXPENSE = {
   currency: "GBP",
 };
 
+// Well-formed v4 UUID that matches no row.
+const UNKNOWN_CATEGORY_ID = "00000000-0000-4000-8000-000000000000";
+
 let token;
+
+// Creates a custom category owned by a second user and returns its ID.
+async function createOtherUsersCategory() {
+  const otherToken = await getToken({ email: "other@example.com" });
+  const res = await request(app)
+    .post("/api/v1/categories")
+    .set("Authorization", `Bearer ${otherToken}`)
+    .send({ name: "Private" });
+  return res.body.data.id;
+}
 
 beforeEach(async () => {
   await truncateTables();
@@ -189,6 +202,43 @@ describe("POST /api/v1/expenses", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.budget_status).toBe("exceeded");
+  });
+
+  it("accepts a system category", async () => {
+    const catRes = await request(app)
+      .get("/api/v1/categories")
+      .set("Authorization", `Bearer ${token}`);
+    const systemCategory = catRes.body.data.find((c) => c.owner_id === null);
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, category_id: systemCategory.id });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.category_id).toBe(systemCategory.id);
+  });
+
+  it("returns 422 when category_id belongs to another user", async () => {
+    const otherCategoryId = await createOtherUsersCategory();
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, category_id: otherCategoryId });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("INVALID_CATEGORY");
+  });
+
+  it("returns 422 when category_id does not exist", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, category_id: UNKNOWN_CATEGORY_ID });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("INVALID_CATEGORY");
   });
 
 });
@@ -446,6 +496,18 @@ describe("PATCH /api/v1/expenses/:id", () => {
       .send({ amount: 1 });
 
     expect(res.status).toBe(404);
+  });
+
+  it("returns 422 when changing category_id to another user's category", async () => {
+    const otherCategoryId = await createOtherUsersCategory();
+
+    const res = await request(app)
+      .patch(`${BASE}/${expenseId}`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ category_id: otherCategoryId });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("INVALID_CATEGORY");
   });
 
   it("returns 401 when no token is provided", async () => {

@@ -1,6 +1,6 @@
 const request = require("supertest");
 const app = require("../../src/app");
-const { truncateTables } = require("../db");
+const { db, truncateTables } = require("../db");
 const { getToken } = require("../helpers/auth.helpers");
 
 const BASE = "/api/v1/reports";
@@ -214,6 +214,33 @@ describe("GET /api/v1/reports/by-category", () => {
 
     const spends = res.body.data.map((r) => parseFloat(r.total_spend));
     expect(spends[0]).toBeGreaterThan(spends[1]);
+  });
+
+  it("does not expose the name of another user's category", async () => {
+    const otherToken = await getToken({ email: "other@example.com" });
+    const otherCat = await request(app)
+      .post("/api/v1/categories")
+      .set("Authorization", `Bearer ${otherToken}`)
+      .send({ name: "Secret Category" });
+
+    // The API now rejects this reference, so insert it directly to prove
+    // the report query itself doesn't leak the name for pre-existing rows.
+    const me = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+    await db.query(
+      `INSERT INTO expenses (owner_id, category_id, amount, date)
+       VALUES ($1, $2, 10, '2025-03-10')`,
+      [me.body.data.id, otherCat.body.data.id]
+    );
+
+    const res = await request(app)
+      .get(`${BASE}/by-category?from=2025-03-01&to=2025-03-31`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].category_name).toBeNull();
   });
 
   it("returns 400 when from is after to", async () => {

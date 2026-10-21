@@ -48,7 +48,11 @@ async function getByCategory(userId, { from, to }) {
        SUM(e.amount)                                     AS total_spend,
        ROUND(SUM(e.amount) * 100.0 / SUM(SUM(e.amount)) OVER (), 2) AS percentage
      FROM expenses e
-     LEFT JOIN categories c ON e.category_id = c.id
+     -- Owner filter in the join is defence in depth: even if an expense ever
+     -- references another user's category, that category's name is not exposed.
+     LEFT JOIN categories c
+       ON e.category_id = c.id
+      AND (c.owner_id IS NULL OR c.owner_id = $1)
      WHERE e.owner_id = $1
        AND e.date >= $2
        AND e.date <= $3

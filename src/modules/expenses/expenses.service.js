@@ -1,8 +1,11 @@
 const expensesRepository = require("./expenses.repository");
 const AppError = require("../../utils/AppError");
 const { checkBudgetStatus } = require("../budgets/budgets.service");
+const { assertCategoryUsable } = require("../categories/categories.service");
 
 async function createExpense(userId, data) {
+
+  await assertCategoryUsable(userId, data.category_id);
 
   const expense = await expensesRepository.createExpense({ userId, ...data });
 
@@ -49,6 +52,8 @@ async function updateExpense(userId, expenseId, updates) {
   if (!existing) {
     throw AppError.notFound("Expense not found");
   }
+
+  await assertCategoryUsable(userId, updates.category_id);
 
   const updated = await expensesRepository.updateExpense(expenseId, userId, updates);
 

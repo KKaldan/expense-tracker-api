@@ -76,6 +76,7 @@ class AppError extends Error {
   static forbidden(message, code)     { return new AppError(message, 403, code); }
   static notFound(message, code)      { return new AppError(message, 404, code); }
   static conflict(message, code)      { return new AppError(message, 409, code); }
+  static unprocessable(message, code) { return new AppError(message, 422, code); }
 }
 
 module.exports = AppError;

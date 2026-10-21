@@ -1,11 +1,14 @@
 const budgetsRepository = require("./budgets.repository");
 const AppError = require("../../utils/AppError");
+const { assertCategoryUsable } = require("../categories/categories.service");
 
 async function getBudgets(userId) {
   return budgetsRepository.getBudgetsByUser(userId);
 }
 
 async function createBudget(userId, data) {
+  await assertCategoryUsable(userId, data.category_id);
+
   return budgetsRepository.createBudget(userId, data);
 }
 
@@ -19,6 +22,8 @@ async function updateBudget(userId, budgetId, updates) {
   if (budget.owner_id !== userId) {
     throw AppError.notFound("Budget not found");
   }
+
+  await assertCategoryUsable(userId, updates.category_id);
 
   return budgetsRepository.updateBudget(budgetId, updates);
 }

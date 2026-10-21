@@ -46,9 +46,27 @@ async function deleteCategory(userId, categoryId) {
   await categoriesRepository.deleteCategory(categoryId);
 }
 
+/**
+ * Guards any write that references a category (expenses, budgets).
+ * Allows system categories and the user's own; rejects everything else
+ * with 422. Nonexistent and other users' categories get the same error so
+ * the response can't be used to probe for other users' category IDs.
+ * A null/undefined categoryId is allowed — the record is uncategorised.
+ */
+async function assertCategoryUsable(userId, categoryId) {
+  if (categoryId === undefined || categoryId === null) return;
+
+  const category = await categoriesRepository.getCategoryById(categoryId);
+
+  if (!category || (category.owner_id !== null && category.owner_id !== userId)) {
+    throw AppError.unprocessable("Category not found", "INVALID_CATEGORY");
+  }
+}
+
 module.exports = {
   getCategories,
   createCategory,
   updateCategory,
   deleteCategory,
+  assertCategoryUsable,
 };
