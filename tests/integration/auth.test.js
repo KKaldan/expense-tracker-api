@@ -190,6 +190,22 @@ describe("POST /api/v1/auth/refresh", () => {
     expect(res.status).toBe(401);
   });
 
+  it("refresh token is single-use under concurrency — only one of several simultaneous refreshes succeeds", async () => {
+    const loginRes = await loginUser();
+    const cookie = loginRes.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+
+    // Fire every request before any completes — a check-then-revoke
+    // implementation lets more than one pass the "not revoked" check.
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        request(app).post("/api/v1/auth/refresh").set("Cookie", cookie)
+      )
+    );
+
+    const successes = results.filter((r) => r.status === 200);
+    expect(successes).toHaveLength(1);
+  });
+
 });
 
 // ---------------------------------------------------------------------------

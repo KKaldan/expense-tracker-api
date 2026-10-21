@@ -73,16 +73,14 @@ async function loginUser({ email, password }) {
 
 async function refreshAccessToken(rawRefreshToken) {
 
-  const stored = await authRepository.findRefreshToken(hashToken(rawRefreshToken));
+  // Single-use: validation and revocation happen atomically in one query.
+  const userId = await authRepository.consumeRefreshToken(hashToken(rawRefreshToken));
 
-  if (!stored || stored.revoked || new Date(stored.expires_at) < new Date()) {
+  if (!userId) {
     throw AppError.unauthorized("Invalid or expired refresh token");
   }
 
-  // Single-use: revoke the consumed token before issuing the replacement.
-  await authRepository.revokeRefreshToken(stored.id);
-
-  const user = await authRepository.findUserById(stored.user_id);
+  const user = await authRepository.findUserById(userId);
   if (!user) {
     throw AppError.unauthorized("User not found");
   }
@@ -101,12 +99,8 @@ async function refreshAccessToken(rawRefreshToken) {
 
 async function logout(rawRefreshToken) {
 
-  const stored = await authRepository.findRefreshToken(hashToken(rawRefreshToken));
-
-  if (stored && !stored.revoked) {
-    await authRepository.revokeRefreshToken(stored.id);
-  }
   // Idempotent — no error if the token is already revoked or not found.
+  await authRepository.revokeRefreshToken(hashToken(rawRefreshToken));
 }
 
 async function getMe(userId) {

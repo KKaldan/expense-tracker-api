@@ -39,20 +39,25 @@ async function storeRefreshToken(userId, tokenHash, expiresAt) {
   );
 }
 
-async function findRefreshToken(tokenHash) {
+// Validates and revokes in a single statement so concurrent requests can't
+// both consume the same token — Postgres row locking guarantees only one
+// UPDATE matches. Returns the owning user_id, or null if the token is
+// unknown, already revoked, or expired.
+async function consumeRefreshToken(tokenHash) {
   const { rows } = await db.query(
-    `SELECT id, user_id, revoked, expires_at
-     FROM refresh_tokens
-     WHERE token_hash = $1`,
+    `UPDATE refresh_tokens
+     SET revoked = TRUE
+     WHERE token_hash = $1 AND revoked = FALSE AND expires_at > NOW()
+     RETURNING user_id`,
     [tokenHash]
   );
-  return rows[0] ?? null;
+  return rows[0]?.user_id ?? null;
 }
 
-async function revokeRefreshToken(id) {
+async function revokeRefreshToken(tokenHash) {
   await db.query(
-    `UPDATE refresh_tokens SET revoked = TRUE WHERE id = $1`,
-    [id]
+    `UPDATE refresh_tokens SET revoked = TRUE WHERE token_hash = $1`,
+    [tokenHash]
   );
 }
 
@@ -61,6 +66,6 @@ module.exports = {
   findUserByEmail,
   findUserById,
   storeRefreshToken,
-  findRefreshToken,
+  consumeRefreshToken,
   revokeRefreshToken,
 };
