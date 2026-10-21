@@ -73,6 +73,18 @@ describe("POST /api/v1/expenses", () => {
     expect(res.body.data.currency).toBe("GBP");
   });
 
+  it("returns 400 when currency is not three letters", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, currency: "1@!" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "currency", message: "Currency must be a 3-letter ISO 4217 code" },
+    ]);
+  });
+
   it("returns 400 when amount is missing", async () => {
     const { amount, ...body } = VALID_EXPENSE;
     const res = await request(app)

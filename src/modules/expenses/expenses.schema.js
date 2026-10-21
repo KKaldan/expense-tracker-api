@@ -2,14 +2,17 @@ const { z } = require("zod");
 const { isoDate } = require("../../utils/isoDate");
 const { amount } = require("../../utils/amount");
 
+// Three letters, normalised to upper case. Shape only — not checked against
+// the real ISO 4217 list.
+const currency = z
+  .string()
+  .regex(/^[A-Za-z]{3}$/, { message: "Currency must be a 3-letter ISO 4217 code" })
+  .transform((v) => v.toUpperCase());
+
 const createExpenseSchema = z.object({
   amount: amount(),
 
-  currency: z
-    .string()
-    .length(3, { message: "Currency must be a 3-letter ISO 4217 code" })
-    .transform((v) => v.toUpperCase())
-    .default("GBP"),
+  currency: currency.default("GBP"),
 
   description: z
     .string()
@@ -31,11 +34,7 @@ const createExpenseSchema = z.object({
 const updateExpenseSchema = z.object({
   amount: amount().optional(),
 
-  currency: z
-    .string()
-    .length(3, { message: "Currency must be a 3-letter ISO 4217 code" })
-    .transform((v) => v.toUpperCase())
-    .optional(),
+  currency: currency.optional(),
 
   description: z.string().max(500).optional(),
 
