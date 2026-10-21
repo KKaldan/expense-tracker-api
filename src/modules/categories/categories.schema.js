@@ -1,8 +1,11 @@
 const { z } = require("zod");
 
+// Names are trimmed before the length check, so "   " is rejected and
+// "Food " can't sit alongside "Food" as a separate category.
 const createCategorySchema = z.object({
   name: z
     .string({ error: (iss) => iss.input === undefined ? "Name is required" : "Name must be a string" })
+    .trim()
     .min(1, { message: "Name cannot be empty" })
     .max(100, { message: "Name must be 100 characters or fewer" }),
 
@@ -17,6 +20,7 @@ const createCategorySchema = z.object({
 const updateCategorySchema = z.object({
   name: z
     .string()
+    .trim()
     .min(1, { message: "Name cannot be empty" })
     .max(100, { message: "Name must be 100 characters or fewer" })
     .optional(),

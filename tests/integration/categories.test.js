@@ -113,6 +113,42 @@ describe("POST /api/v1/categories", () => {
     ]);
   });
 
+  it("returns 400 when name is only whitespace", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "   " });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "name", message: "Name cannot be empty" },
+    ]);
+  });
+
+  it("trims surrounding whitespace from the name", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "  Hobbies  " });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.name).toBe("Hobbies");
+  });
+
+  it("returns 409 when the name differs from an existing one only by surrounding whitespace", async () => {
+    await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Hobbies" });
+
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ name: "Hobbies " });
+
+    expect(res.status).toBe(409);
+  });
+
   it("returns 400 when color is not a valid hex code", async () => {
     const res = await request(app)
       .post(BASE)

@@ -6,7 +6,7 @@ const email = z.string().trim().toLowerCase().email({ message: "Must be a valid 
 
 const registerSchema = z.object({
   email,
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  name: z.string().trim().min(2, { message: "Name must be at least 2 characters" }),
   // bcrypt ignores everything past 72 bytes, so a longer password would
   // silently match any other with the same first 72. Bytes, not characters —
   // multi-byte UTF-8 (e.g. emoji) counts for more. Login deliberately has no

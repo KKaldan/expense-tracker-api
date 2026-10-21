@@ -46,6 +46,18 @@ describe("POST /api/v1/auth/register", () => {
     expect(res.body.data.email).toBe("mixed.case@example.com");
   });
 
+  it("stores the name trimmed and rejects a whitespace-only name", async () => {
+    const trimmed = await registerUser({ name: "  Jane  " });
+    expect(trimmed.status).toBe(201);
+    expect(trimmed.body.data.name).toBe("Jane");
+
+    const blank = await registerUser({ email: "blank@example.com", name: "    " });
+    expect(blank.status).toBe(400);
+    expect(blank.body.error.details).toEqual([
+      { field: "name", message: "Name must be at least 2 characters" },
+    ]);
+  });
+
   it("returns 409 when the email differs from an existing one only by case", async () => {
     await registerUser();
     const res = await registerUser({ email: DEFAULT_USER.email.toUpperCase() });
