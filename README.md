@@ -6,7 +6,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 20 LTS |
+| Runtime | Node.js 24 LTS |
 | Framework | Express 5 |
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
@@ -15,7 +15,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - PostgreSQL 16+
 
 ## Local Setup

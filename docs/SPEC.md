@@ -40,7 +40,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| Runtime | Node.js 20 LTS | LTS support; non-blocking I/O ideal for API workloads |
+| Runtime | Node.js 24 LTS | LTS support; non-blocking I/O ideal for API workloads |
 | Framework | Express 5 | Minimal, composable; vast middleware ecosystem |
 | Database | PostgreSQL 16 | ACID guarantees; `NUMERIC` type; powerful aggregation |
 | Auth | jsonwebtoken | Stateless access tokens paired with rotating refresh tokens |

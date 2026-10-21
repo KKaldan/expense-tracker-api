@@ -46,7 +46,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | `helmet` | ✅ Done | `app.use(helmet())` mounted first in app.js — default preset covers CSP, HSTS, X-Frame-Options, X-Content-Type-Options |
 | CORS | ✅ Done | `cors` middleware with an `origin` allowlist function checked against `CORS_ORIGIN` (comma-separated env var); `credentials: true` for the refresh-token cookie; rejects with `AppError.forbidden` (403) rather than a raw 500 |
 | Rate limiting | ✅ Done | `express-rate-limit` mounted on `/api/v1/auth` — 10 req/min per IP; skipped when `NODE_ENV=test` since the integration suite exceeds that rate by design |
-| Docker | ✅ Done | `Dockerfile` (node:20-alpine, non-root user) + `docker-compose.yml` (api + postgres:16-alpine, healthcheck-gated). `scripts/migrate.js` tracks applied migrations in a `schema_migrations` table so `npm run migrate` is safe to re-run on every container start |
+| Docker | ✅ Done | `Dockerfile` (node:24-alpine, `NODE_ENV=production`, non-root user) + `docker-compose.yml` (api + postgres:16-alpine, healthcheck-gated). `scripts/migrate.js` tracks applied migrations in a `schema_migrations` table so `npm run migrate` is safe to re-run on every container start |
 | CI/CD | ✅ Done | `.github/workflows/ci.yml` — runs the Jest suite against a `postgres:16-alpine` service container on every push/PR to `main` |
 
 ### Next
