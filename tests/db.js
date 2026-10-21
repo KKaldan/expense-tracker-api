@@ -1,6 +1,6 @@
 // Exposes the app's database pool to test files for cleanup operations.
-// The pool connects to the test DB because loadTestEnv.js sets DATABASE_URL
-// before env.js is ever imported.
+// The pool connects to the test DB because jest.config.js loads .env.test
+// (with override) before env.js is ever imported.
 
 const db = require("../src/config/db");
 

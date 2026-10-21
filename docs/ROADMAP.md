@@ -19,7 +19,7 @@
 - `GET /expenses/:id` — single expense fetch
 - `GET /expenses` — pagination, date range filter, category filter, multi-column sort
 - Zod validation on all write endpoints and query parameters
-- `validate` middleware factory (supports `body` and `query` sources)
+- `validate` middleware factory for request bodies (query params are parsed in controllers — Express 5's `req.query` can't be reassigned)
 - Central `errorHandler` middleware (AppError, Zod, JWT, pg errors, unexpected bugs)
 - 404 handler for unmatched routes
 - `asyncHandler` wired into all routes

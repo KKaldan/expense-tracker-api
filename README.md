@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (127 integration tests) |
+| Testing | Jest + Supertest (128 integration tests) |
 
 ## Prerequisites
 
@@ -167,6 +167,29 @@ Authenticate and receive an access token. A refresh token is also set as an `htt
     "user": { "id": "uuid", "email": "user@example.com", "name": "Jane Smith" }
   }
 }
+```
+
+---
+
+#### `POST /auth/refresh`
+Exchange the `refresh_token` cookie for a new access token. The refresh token is single-use: it is revoked and a new one is set in its place. Returns `401` if the cookie is missing, invalid, expired, or already used.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "data": { "token": "<jwt>" }
+}
+```
+
+---
+
+#### `POST /auth/logout` *(auth required)*
+Revoke the current refresh token and clear the `refresh_token` cookie. Succeeds even if the cookie is missing or already revoked.
+
+**Response `200`:**
+```json
+{ "success": true }
 ```
 
 ---
@@ -476,9 +499,9 @@ expense-tracker-api/
 │   ├── 007_add_budgets_unique_constraints.sql
 │   └── 008_add_users_updated_at_trigger.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (127 tests across 5 suites)
+│   ├── integration/            # Jest + Supertest tests (128 tests across 5 suites)
 │   ├── helpers/                # Shared test utilities
-│   └── setup/                  # globalSetup — runs migrations before test suite
+│   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/
 │   ├── SPEC.md                 # Full software specification
 │   ├── ARCHITECTURE.md         # Layer design and responsibilities

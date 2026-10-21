@@ -118,11 +118,11 @@ Two-token strategy — short-lived access tokens paired with rotating refresh to
 | Token | Lifetime | Transport | Storage |
 |---|---|---|---|
 | Access token | 15 min | `Authorization: Bearer` header | Client memory only |
-| Refresh token | 7 days | `httpOnly` cookie | `Secure; SameSite=Strict` |
+| Refresh token | 7 days | `httpOnly` cookie | `SameSite=Strict`; `Secure` in production |
 
 **Refresh token security:** raw token generated via `crypto.randomBytes(64)`, SHA-256 hashed before DB storage. A database breach yields only hashes — no usable tokens.
 
-**Single-use rotation:** every `POST /auth/refresh` immediately revokes the old token and issues a new one. If a stolen token is used first, the legitimate user's next refresh attempt fails (token already revoked).
+**Single-use rotation:** every `POST /auth/refresh` immediately revokes the old token and issues a new one. If a stolen token is used first, the legitimate user's next refresh attempt fails (token already revoked). Validation and revocation happen in one conditional `UPDATE ... RETURNING`, so even simultaneous requests with the same token cannot both succeed.
 
 `req.user` shape after `authenticate` middleware: `{ id, email, iat, exp }`
 

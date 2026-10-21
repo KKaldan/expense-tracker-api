@@ -1,6 +1,6 @@
 # ExpenseTracker API — Software Specification
 
-> **Version:** 1.0 &nbsp;·&nbsp; **Status:** In Development &nbsp;·&nbsp; **Prepared:** March 11, 2026
+> **Version:** 1.0 &nbsp;·&nbsp; **Status:** Complete &nbsp;·&nbsp; **Prepared:** March 11, 2026
 
 | | |
 |---|---|
@@ -71,7 +71,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 - System default categories (`owner_id = NULL`) are visible to all users without duplication
 - Users can create, rename, and delete their own custom categories
-- Unique constraint on `(owner_id, name)` prevents duplicate category names per user
+- Partial unique indexes prevent duplicate category names — one across system categories, one per user
 
 ### 2.4 Budget Controls
 
@@ -121,7 +121,7 @@ All primary keys are `UUID` (`gen_random_uuid()`). Mutable tables carry both `cr
 |---|---|---|---|
 | `id` | `UUID` | NO | Primary key |
 | `owner_id` | `UUID` | YES | FK → `users(id)` ON DELETE CASCADE; `NULL` = system default |
-| `name` | `TEXT` | NO | `UNIQUE(owner_id, name)` |
+| `name` | `TEXT` | NO | Unique per owner — partial indexes on `(name) WHERE owner_id IS NULL` and `(owner_id, name) WHERE owner_id IS NOT NULL` |
 | `icon` | `TEXT` | YES | Emoji or icon identifier for client UI |
 | `color` | `TEXT` | YES | Hex colour string e.g. `#27AE60` |
 | `created_at` | `TIMESTAMPTZ` | NO | `DEFAULT NOW()` |
@@ -245,7 +245,7 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 | Token | Lifetime | Transport | Client Storage |
 |---|---|---|---|
 | Access Token | 15 minutes | `Authorization: Bearer` header | In-memory only |
-| Refresh Token | 7 days | `httpOnly` cookie | `httpOnly; Secure; SameSite=Strict` |
+| Refresh Token | 7 days | `httpOnly` cookie | `httpOnly; SameSite=Strict`; `Secure` in production |
 
 ### 5.2 Registration
 
@@ -267,10 +267,10 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 ### 5.4 Token Rotation
 
 1. Client `POST`s to `/auth/refresh` — browser sends cookie automatically
-2. Server reads cookie, hashes raw token, looks up hash in `refresh_tokens`
-3. Validates: row exists, `revoked = FALSE`, `expires_at > NOW()`, user still active
-4. Old token row set `revoked = TRUE` immediately (single-use guarantee)
-5. New access token and new refresh token issued atomically; cookie replaced
+2. Server reads cookie and hashes the raw token
+3. A single conditional `UPDATE` sets `revoked = TRUE` only where the hash matches, `revoked = FALSE` and `expires_at > NOW()` — validation and revocation are one atomic step, so concurrent requests cannot reuse the same token
+4. If no row was updated → `401`; the owning user must also still exist
+5. New access token and new refresh token issued; cookie replaced
 
 ### 5.5 `authenticate` Middleware
 
@@ -304,15 +304,16 @@ expense-tracker-api/
 │   ├── middleware/
 │   │   ├── auth.middleware.js     # JWT verification; sets req.user = { id, email, iat, exp }
 │   │   ├── validate.js            # Zod schema validation factory
+│   │   ├── rateLimiter.js         # express-rate-limit config for /auth/*
 │   │   └── errorHandler.js        # Central 4-arg error handler
 │   ├── utils/
 │   │   ├── AppError.js            # Custom error class with statusCode
 │   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (127 tests across 5 suites)
+│   ├── integration/               # Jest + Supertest (128 tests across 5 suites)
 │   ├── helpers/                   # Shared test utilities
-│   └── setup/                     # globalSetup — runs migrations before test suite
+│   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/
 │   ├── 001_enable_extensions.sql
 │   ├── 002_create_users.sql
@@ -322,7 +323,12 @@ expense-tracker-api/
 │   ├── 006_create_budgets.sql
 │   ├── 007_add_budgets_unique_constraints.sql
 │   └── 008_add_users_updated_at_trigger.sql
+├── scripts/
+│   └── migrate.js                 # Applies pending migrations; tracked in schema_migrations
 ├── docs/
+├── .github/workflows/ci.yml       # Runs the test suite on every push/PR to main
+├── Dockerfile
+├── docker-compose.yml             # api + postgres, healthcheck-gated
 ├── .env.example
 ├── .env.test.example
 └── server.js                      # Entry point — app.listen() lives here only
@@ -381,7 +387,7 @@ CORS_ORIGIN=http://localhost:3000
 ### 7.2 Reliability
 
 - `pg` Pool with max 10 connections; connection errors surfaced at startup, not silently at runtime
-- All migrations are idempotent and version-numbered (`001_`, `002_`, ...) for reproducible deploys
+- Migrations are version-numbered (`001_`, `002_`, ...) and recorded in a `schema_migrations` table, so each is applied exactly once — safe to run on every deploy
 - Graceful shutdown: `SIGTERM` stops accepting connections, drains pg pool, then exits
 
 ### 7.3 Performance
@@ -394,8 +400,8 @@ CORS_ORIGIN=http://localhost:3000
 ### 7.4 Testability
 
 - `app.js` and `server.js` are separated — Jest imports the Express app without binding a port
-- Repositories are injected into services (or easily mockable) for unit test isolation
-- Integration tests run against a dedicated test database with seeded fixtures
+- Integration tests exercise every endpoint end-to-end against a dedicated test database
+- The test schema is rebuilt from the migrations before each run; user data is cleared between tests
 
 ---
 
@@ -411,4 +417,6 @@ Follow this sequence to keep each layer independently testable before the next i
 | 4 | Expenses module | CRUD with pagination, date range filter, category filter, sorting |
 | 5 | Budgets module | CRUD + budget-check hook inside the expense service layer |
 | 6 | Reports module | `summary`, `by-category`, and `monthly-trend` aggregation endpoints |
-| 7 | Test suite | Unit tests for all services; integration tests for all endpoints |
+| 7 | Security & production hardening | `helmet`, CORS allowlist, auth rate limiting, Docker, CI pipeline |
+
+Integration tests are written alongside each phase rather than as a separate final step.
