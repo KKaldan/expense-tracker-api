@@ -5,13 +5,23 @@ const db = require("../../config/db");
 const ALLOWED_SORT_COLUMNS = new Set(["date", "amount", "created_at"]);
 const ALLOWED_SORT_DIRECTIONS = new Set(["asc", "desc"]);
 
+const DEFAULT_ORDER_BY = "date DESC, created_at DESC";
+
 /**
  * Parses a sort string like "date:desc,amount:asc" into a safe SQL ORDER BY clause.
  * Any unrecognised column or direction is silently dropped.
  * Falls back to the default ordering if nothing valid remains.
+ *
+ * Always ends with `id` as a unique tiebreaker. Without it, rows that tie on
+ * every sort column have no defined order, so LIMIT/OFFSET pages can repeat
+ * or skip them.
  */
 function buildOrderBy(sort) {
-  if (!sort) return "date DESC, created_at DESC";
+  return `${buildSortColumns(sort)}, id`;
+}
+
+function buildSortColumns(sort) {
+  if (!sort) return DEFAULT_ORDER_BY;
 
   const parts = sort
     .split(",")
@@ -23,7 +33,7 @@ function buildOrderBy(sort) {
     })
     .filter(Boolean);
 
-  return parts.length > 0 ? parts.join(", ") : "date DESC, created_at DESC";
+  return parts.length > 0 ? parts.join(", ") : DEFAULT_ORDER_BY;
 }
 
 async function createExpense({ userId, amount, currency, description, category_id, date }) {

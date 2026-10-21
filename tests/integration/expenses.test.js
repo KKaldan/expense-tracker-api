@@ -442,6 +442,25 @@ describe("GET /api/v1/expenses", () => {
     expect(amounts).toEqual([...amounts].sort((a, b) => a - b));
   });
 
+  it("pages through tied rows without repeating or skipping any", async () => {
+    for (let i = 0; i < 3; i++) {
+      await request(app).post(BASE).set("Authorization", `Bearer ${token}`)
+        .send({ ...VALID_EXPENSE, amount: 10 });
+    }
+
+    const ids = [];
+    for (let page = 1; page <= 3; page++) {
+      const res = await request(app)
+        .get(`${BASE}?sort=amount:asc&limit=1&page=${page}`)
+        .set("Authorization", `Bearer ${token}`);
+      ids.push(res.body.data[0].id);
+    }
+
+    // Ties are broken by id, so the order is fully defined.
+    expect(new Set(ids).size).toBe(3);
+    expect(ids).toEqual([...ids].sort());
+  });
+
   it("returns 401 when no token is provided", async () => {
     const res = await request(app).get(BASE);
     expect(res.status).toBe(401);
