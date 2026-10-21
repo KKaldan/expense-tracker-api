@@ -99,7 +99,7 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 - Refresh-token reuse detection with token families (migration 010) — a replayed token revokes that one session
 - Docker Compose forces `NODE_ENV=production`
 
-Integration tests: 172 across 6 suites — all passing
+Integration tests: 173 across 6 suites — all passing
 
 ---
 

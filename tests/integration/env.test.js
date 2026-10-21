@@ -32,4 +32,11 @@ describe("environment validation", () => {
     expect(result.stderr).toContain("JWT_SECRET is still the .env.example placeholder");
   });
 
+  it("refuses to start when NODE_ENV isn't development, production, or test", () => {
+    const result = loadEnvWith({ NODE_ENV: "prod" });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("NODE_ENV");
+  });
+
 });

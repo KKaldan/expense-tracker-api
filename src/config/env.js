@@ -3,7 +3,9 @@ require("dotenv").config();
 const { z } = require("zod");
 
 const envSchema = z.object({
-  NODE_ENV:                  z.string().default("development"),
+  // An enum, not a free string — a typo like "prod" would otherwise run with
+  // production-only behaviour (the Secure cookie flag) silently switched off.
+  NODE_ENV:                  z.enum(["development", "production", "test"]).default("development"),
   PORT:                      z.coerce.number().default(3000),
   DATABASE_URL:              z.string().min(1, "DATABASE_URL is required"),
   // HS256 is only as strong as its key — 32+ chars, and never the .env.example placeholder.

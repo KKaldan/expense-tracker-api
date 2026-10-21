@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (172 integration tests) |
+| Testing | Jest + Supertest (173 integration tests) |
 
 ## Prerequisites
 
@@ -515,7 +515,7 @@ expense-tracker-api/
 │   │   └── env.js              # Validated environment config — single source of truth
 │   ├── middleware/
 │   │   ├── auth.middleware.js  # JWT verification, sets req.user
-│   │   ├── errorHandler.js     # Central error handler (AppError, Zod, JWT, pg)
+│   │   ├── errorHandler.js     # Central error handler (AppError, Zod, JWT, body parsing, pg)
 │   │   ├── rateLimiter.js      # express-rate-limit config — mounted on /api/v1/auth
 │   │   └── validate.js         # Zod validation middleware factory
 │   ├── modules/
@@ -524,11 +524,12 @@ expense-tracker-api/
 │   │   ├── categories/         # System defaults + user custom categories
 │   │   ├── budgets/            # CRUD + budget check hook
 │   │   └── reports/            # summary, by-category, monthly-trend
-│   └── utils/
-│       ├── AppError.js         # Custom operational error class
-│       ├── amount.js           # Shared Zod schema for NUMERIC(12,2) money amounts
-│       ├── asyncHandler.js     # Wraps async controllers to forward errors to Express
-│       └── isoDate.js          # Shared Zod schema for real YYYY-MM-DD calendar dates
+│   ├── utils/
+│   │   ├── AppError.js         # Custom operational error class
+│   │   ├── amount.js           # Shared Zod schema for NUMERIC(12,2) money amounts
+│   │   ├── asyncHandler.js     # Wraps async controllers to forward errors to Express
+│   │   └── isoDate.js          # Shared Zod schema for real YYYY-MM-DD calendar dates
+│   └── app.js                  # Express wiring — middleware, routes, error handler (no listen())
 ├── scripts/
 │   └── migrate.js              # Applies pending migrations; tracked via schema_migrations table
 ├── migrations/
@@ -543,7 +544,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (172 tests across 6 suites)
+│   ├── integration/            # Jest + Supertest tests (173 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/
@@ -573,9 +574,9 @@ Middleware      — authenticate, validate (Zod), asyncHandler
     ↓
 Controllers     — parse req/res, call service, return JSON envelope
     ↓
-Services        — all business logic, ownership checks, error throwing
+Services        — all business logic, cross-entity rules, error throwing
     ↓
-Repositories    — all SQL, parameterised queries only, return plain objects
+Repositories    — all SQL, parameterised queries only, ownership enforced in the query itself
     ↓
 PostgreSQL
 ```
@@ -589,6 +590,6 @@ PostgreSQL
 | `JWT_EXPIRY` | No | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_EXPIRY_DAYS` | No | `7` | Refresh token lifetime in days |
 | `PORT` | No | `3000` | HTTP port |
-| `NODE_ENV` | No | `development` | `development`, `production`, or `test` |
-| `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins |
+| `NODE_ENV` | No | `development` | `development`, `production`, or `test` — any other value fails startup |
+| `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins. Set it to your frontend's origin (e.g. `http://localhost:5173` for a Vite dev server) — the default is the API's own port, so a separate frontend is rejected with `403 CORS_NOT_ALLOWED` |
 | `TRUST_PROXY` | No | `0` | Number of reverse proxies in front of the API, so rate limiting sees real client IPs. Leave at `0` unless deployed behind a proxy |
