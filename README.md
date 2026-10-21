@@ -542,9 +542,10 @@ PostgreSQL
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `DATABASE_URL` | Yes | — | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | — | Secret for signing JWTs (use 256-bit random string) |
+| `JWT_SECRET` | Yes | — | Secret for signing JWTs — at least 32 characters; startup fails otherwise (e.g. `openssl rand -hex 32`) |
 | `JWT_EXPIRY` | No | `15m` | Access token lifetime |
 | `REFRESH_TOKEN_EXPIRY_DAYS` | No | `7` | Refresh token lifetime in days |
 | `PORT` | No | `3000` | HTTP port |
 | `NODE_ENV` | No | `development` | `development`, `production`, or `test` |
 | `CORS_ORIGIN` | No | `http://localhost:3000` | Comma-separated list of allowed browser origins |
+| `TRUST_PROXY` | No | `0` | Number of reverse proxies in front of the API, so rate limiting sees real client IPs. Leave at `0` unless deployed behind a proxy |

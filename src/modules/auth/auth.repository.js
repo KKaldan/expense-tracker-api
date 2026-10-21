@@ -61,6 +61,13 @@ async function revokeRefreshToken(tokenHash) {
   );
 }
 
+async function deleteExpiredRefreshTokens(userId) {
+  await db.query(
+    `DELETE FROM refresh_tokens WHERE user_id = $1 AND expires_at <= NOW()`,
+    [userId]
+  );
+}
+
 module.exports = {
   createUser,
   findUserByEmail,
@@ -68,4 +75,5 @@ module.exports = {
   storeRefreshToken,
   consumeRefreshToken,
   revokeRefreshToken,
+  deleteExpiredRefreshTokens,
 };

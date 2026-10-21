@@ -14,6 +14,8 @@ const reportRoutes = require("./modules/reports/reports.routes");
 
 const app = express();
 
+app.set("trust proxy", env.TRUST_PROXY);
+
 const corsOptions = {
   origin(origin, callback) {
     // Allow non-browser clients (no Origin header — curl, server-to-server, health checks)

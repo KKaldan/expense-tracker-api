@@ -13,7 +13,8 @@ function authenticate(req, _res, next) {
   const token = authHeader.split(" ")[1];
 
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
+    // Pin the algorithm — never let the token's own header choose how it's verified.
+    req.user = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] });
     next();
   } catch (err) {
     // JsonWebTokenError and TokenExpiredError are handled by the central errorHandler

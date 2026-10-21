@@ -1,6 +1,7 @@
 const request = require("supertest");
+const jwt = require("jsonwebtoken");
 const app = require("../../src/app");
-const { truncateTables } = require("../db");
+const { db, truncateTables } = require("../db");
 const { registerUser, loginUser, getToken, DEFAULT_USER } = require("../helpers/auth.helpers");
 
 beforeEach(async () => {
@@ -140,6 +141,23 @@ describe("POST /api/v1/auth/login", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.user.email).toBe(DEFAULT_USER.email);
+  });
+
+  it("deletes the user's expired refresh tokens but keeps revoked unexpired ones", async () => {
+    const { rows: [user] } = await db.query("SELECT id FROM users WHERE email = $1", [DEFAULT_USER.email]);
+    await db.query(
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, revoked) VALUES
+         ($1, 'expired-hash', NOW() - INTERVAL '1 day', FALSE),
+         ($1, 'revoked-hash', NOW() + INTERVAL '1 day', TRUE)`,
+      [user.id]
+    );
+
+    await loginUser();
+
+    const { rows } = await db.query(
+      "SELECT token_hash FROM refresh_tokens WHERE token_hash IN ('expired-hash', 'revoked-hash')"
+    );
+    expect(rows.map((r) => r.token_hash)).toEqual(["revoked-hash"]);
   });
 
   it("returns 400 when fields are missing", async () => {
@@ -320,6 +338,23 @@ describe("GET /api/v1/auth/me", () => {
 
     expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
+  });
+
+  it("returns 401 for a token signed with a different algorithm", async () => {
+    // Same secret, valid signature — only the algorithm differs. Without
+    // algorithm pinning, jsonwebtoken would accept this.
+    const forged = jwt.sign(
+      { id: "00000000-0000-4000-8000-000000000000", email: DEFAULT_USER.email },
+      process.env.JWT_SECRET,
+      { algorithm: "HS512" }
+    );
+
+    const res = await request(app)
+      .get("/api/v1/auth/me")
+      .set("Authorization", `Bearer ${forged}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("INVALID_TOKEN");
   });
 
   it("returns 401 when the Authorization header is missing the Bearer prefix", async () => {

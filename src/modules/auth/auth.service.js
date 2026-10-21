@@ -18,6 +18,14 @@ function refreshTokenExpiry() {
   return new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 }
 
+function signAccessToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email },
+    JWT_SECRET,
+    { algorithm: "HS256", expiresIn: JWT_EXPIRY }
+  );
+}
+
 async function registerUser({ email, name, password }) {
 
   const existingUser = await authRepository.findUserByEmail(email);
@@ -51,11 +59,12 @@ async function loginUser({ email, password }) {
     throw AppError.unauthorized("Invalid email or password");
   }
 
-  const accessToken = jwt.sign(
-    { id: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
-  );
+  const accessToken = signAccessToken(user);
+
+  // Housekeeping: login is a natural point to drop this user's expired
+  // tokens so the table doesn't grow forever. Revoked-but-unexpired rows
+  // are kept — they're still needed to recognise a replayed token.
+  await authRepository.deleteExpiredRefreshTokens(user.id);
 
   const rawRefreshToken = generateRefreshToken();
   await authRepository.storeRefreshToken(user.id, hashToken(rawRefreshToken), refreshTokenExpiry());
@@ -85,11 +94,7 @@ async function refreshAccessToken(rawRefreshToken) {
     throw AppError.unauthorized("User not found");
   }
 
-  const accessToken = jwt.sign(
-    { id: user.id, email: user.email },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRY }
-  );
+  const accessToken = signAccessToken(user);
 
   const newRawToken = generateRefreshToken();
   await authRepository.storeRefreshToken(user.id, hashToken(newRawToken), refreshTokenExpiry());
