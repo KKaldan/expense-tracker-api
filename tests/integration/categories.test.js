@@ -318,6 +318,15 @@ describe("DELETE /api/v1/categories/:id", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 400 for a malformed ID", async () => {
+    const res = await request(app)
+      .delete(`${BASE}/not-a-uuid`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("BAD_REQUEST");
+  });
+
   it("returns 401 when no token is provided", async () => {
     const res = await request(app)
       .delete(`${BASE}/00000000-0000-0000-0000-000000000000`);

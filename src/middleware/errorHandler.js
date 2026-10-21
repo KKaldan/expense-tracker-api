@@ -4,7 +4,7 @@
  *
  * Handles three categories:
  *   1. AppError (isOperational) — expected failures thrown by services/controllers
- *   2. Known third-party errors — Zod validation, JWT errors, pg unique violation
+ *   2. Known third-party errors — Zod validation, JWT errors, pg constraint/input errors
  *   3. Unexpected bugs — log full error, return generic 500
  */
 function errorHandler(err, _req, res, _next) {
@@ -66,6 +66,26 @@ function errorHandler(err, _req, res, _next) {
     return res.status(409).json({
       success: false,
       error: { code: "CONFLICT", message: "A resource with that value already exists" },
+    });
+  }
+
+  // --- 2d. PostgreSQL foreign key violation ---
+  // Services validate references up front; this is the backstop for a
+  // referenced row being deleted between that check and the write.
+  if (err.code === "23503") {
+    return res.status(422).json({
+      success: false,
+      error: { code: "INVALID_REFERENCE", message: "A referenced resource does not exist" },
+    });
+  }
+
+  // --- 2e. PostgreSQL invalid input value ---
+  // 22P02: value can't be cast to the column type (e.g. "abc" as a UUID route param)
+  // 22008: date out of range — Zod schemas catch this first; backstop only
+  if (err.code === "22P02" || err.code === "22008") {
+    return res.status(400).json({
+      success: false,
+      error: { code: "BAD_REQUEST", message: "Invalid input value" },
     });
   }
 

@@ -115,6 +115,15 @@ describe("GET /api/v1/reports/summary", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("returns 400 when to does not exist on the calendar", async () => {
+    const res = await request(app)
+      .get(`${BASE}/summary?from=2025-02-01&to=2025-02-29`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("returns 400 when from is after to", async () => {
     const res = await request(app)
       .get(`${BASE}/summary?from=2025-03-31&to=2025-03-01`)

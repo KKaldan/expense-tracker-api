@@ -121,6 +121,29 @@ describe("POST /api/v1/expenses", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("returns 400 when date does not exist on the calendar", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, date: "2026-02-31" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.details).toEqual([
+      { field: "date", message: "Date must be a real calendar date" },
+    ]);
+  });
+
+  it("accepts a leap day", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, date: "2028-02-29" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.date).toBe("2028-02-29");
+  });
+
   it("returns 401 when no token is provided", async () => {
     const res = await request(app).post(BASE).send(VALID_EXPENSE);
     expect(res.status).toBe(401);
@@ -310,6 +333,15 @@ describe("GET /api/v1/expenses", () => {
     expect(res.body.data[0].date).toBe("2026-03-15");
   });
 
+  it("returns 400 when from does not exist on the calendar", async () => {
+    const res = await request(app)
+      .get(`${BASE}?from=2026-02-30`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("returns 400 when from is after to", async () => {
     const res = await request(app)
       .get(`${BASE}?from=2026-06-30&to=2026-01-01`)
@@ -406,6 +438,15 @@ describe("GET /api/v1/expenses/:id", () => {
       .set("Authorization", `Bearer ${token}`);
 
     expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for a malformed ID", async () => {
+    const res = await request(app)
+      .get(`${BASE}/not-a-uuid`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("BAD_REQUEST");
   });
 
   it("returns 404 for an expense belonging to another user", async () => {

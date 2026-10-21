@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { isoDate } = require("../../utils/isoDate");
 
 const createExpenseSchema = z.object({
   amount: z
@@ -22,9 +23,7 @@ const createExpenseSchema = z.object({
     .nullable()
     .optional(),
 
-  date: z
-    .string({ required_error: "Date is required" })
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be in YYYY-MM-DD format" }),
+  date: isoDate("Date"),
 });
 
 // All fields optional for PATCH — at least one must be provided.
@@ -50,10 +49,7 @@ const updateExpenseSchema = z.object({
     .nullable()
     .optional(),
 
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Date must be in YYYY-MM-DD format" })
-    .optional(),
+  date: isoDate("Date").optional(),
 }).refine(
   (data) => Object.keys(data).length > 0,
   { message: "At least one field must be provided" }
@@ -65,14 +61,8 @@ const updateExpenseSchema = z.object({
 const listExpensesQuerySchema = z.object({
   page: z.coerce.number().int().positive().catch(1),
   limit: z.coerce.number().int().min(1).max(100).catch(20),
-  from: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "from must be in YYYY-MM-DD format" })
-    .optional(),
-  to: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "to must be in YYYY-MM-DD format" })
-    .optional(),
+  from: isoDate("from").optional(),
+  to: isoDate("to").optional(),
   category_id: z.string().uuid({ message: "category_id must be a valid UUID" }).optional(),
   sort: z.string().optional(),
 }).refine(

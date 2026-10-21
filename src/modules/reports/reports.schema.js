@@ -1,15 +1,10 @@
 const { z } = require("zod");
+const { isoDate } = require("../../utils/isoDate");
 
 const dateRangeSchema = z
   .object({
-    from: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "from must be in YYYY-MM-DD format" })
-      .optional(),
-    to: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, { message: "to must be in YYYY-MM-DD format" })
-      .optional(),
+    from: isoDate("from").optional(),
+    to: isoDate("to").optional(),
   })
   .refine(({ from, to }) => !from || !to || from <= to, {
     message: "from must be on or before to",

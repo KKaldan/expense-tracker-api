@@ -262,6 +262,16 @@ describe("PATCH /api/v1/budgets/:id", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 400 for a malformed ID", async () => {
+    const res = await request(app)
+      .patch(`${BASE}/not-a-uuid`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ amount: 100 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("BAD_REQUEST");
+  });
+
   it("returns 404 when attempting to update another user's budget", async () => {
     const otherToken = await getToken({ email: "other@example.com" });
     const otherRes = await request(app)
