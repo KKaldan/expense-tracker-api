@@ -50,6 +50,30 @@ describe("POST /api/v1/budgets", () => {
     expect(res.body.data.category_id).toBeNull();
   });
 
+  it("returns 400 when amount has more than 2 decimal places", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_BUDGET, amount: 0.001 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount can have at most 2 decimal places" },
+    ]);
+  });
+
+  it("returns 400 when amount is too large for the column", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_BUDGET, amount: 10000000000 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount must be 9,999,999,999.99 or less" },
+    ]);
+  });
+
   it("creates a budget linked to a category", async () => {
     const catRes = await request(app)
       .get("/api/v1/categories")

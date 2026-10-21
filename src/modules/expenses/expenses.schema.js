@@ -1,10 +1,9 @@
 const { z } = require("zod");
 const { isoDate } = require("../../utils/isoDate");
+const { amount } = require("../../utils/amount");
 
 const createExpenseSchema = z.object({
-  amount: z
-    .number({ error: (iss) => iss.input === undefined ? "Amount is required" : "Amount must be a number" })
-    .positive({ message: "Amount must be greater than 0" }),
+  amount: amount(),
 
   currency: z
     .string()
@@ -30,10 +29,7 @@ const createExpenseSchema = z.object({
 // Defined independently (not via .partial()) so no defaults are inherited,
 // otherwise an empty body would get { currency: "GBP" } injected and pass.
 const updateExpenseSchema = z.object({
-  amount: z
-    .number({ error: "Amount must be a number" })
-    .positive({ message: "Amount must be greater than 0" })
-    .optional(),
+  amount: amount().optional(),
 
   currency: z
     .string()

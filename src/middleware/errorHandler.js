@@ -82,7 +82,9 @@ function errorHandler(err, _req, res, _next) {
   // --- 2e. PostgreSQL invalid input value ---
   // 22P02: value can't be cast to the column type (e.g. "abc" as a UUID route param)
   // 22008: date out of range — Zod schemas catch this first; backstop only
-  if (err.code === "22P02" || err.code === "22008") {
+  // 22003: numeric out of range (e.g. amount too large for NUMERIC(12,2)) — backstop only
+  // 23514: CHECK constraint violation (e.g. amount rounds to 0.00) — backstop only
+  if (["22P02", "22008", "22003", "23514"].includes(err.code)) {
     return res.status(400).json({
       success: false,
       error: { code: "BAD_REQUEST", message: "Invalid input value" },

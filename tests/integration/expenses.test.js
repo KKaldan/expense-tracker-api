@@ -123,6 +123,30 @@ describe("POST /api/v1/expenses", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("returns 400 when amount has more than 2 decimal places", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 0.001 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount can have at most 2 decimal places" },
+    ]);
+  });
+
+  it("returns 400 when amount is too large for the column", async () => {
+    const res = await request(app)
+      .post(BASE)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ ...VALID_EXPENSE, amount: 10000000000 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.details).toEqual([
+      { field: "amount", message: "Amount must be 9,999,999,999.99 or less" },
+    ]);
+  });
+
   it("returns 400 when date format is invalid", async () => {
     const res = await request(app)
       .post(BASE)
