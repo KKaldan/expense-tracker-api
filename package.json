@@ -1,7 +1,7 @@
 {
   "name": "expense-tracker-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "SaaS-style personal expense tracker REST API — Express 5, PostgreSQL, JWT with rotating refresh tokens",
   "main": "server.js",
   "engines": {
     "node": ">=24"
@@ -18,7 +18,7 @@
     "test:watch": "jest --runInBand --watch"
   },
   "keywords": [],
-  "author": "",
+  "author": "KKaldan",
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",

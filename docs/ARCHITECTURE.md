@@ -54,7 +54,7 @@ HTTP Request
 
 ## Middleware Stack
 
-Registered in `app.js` in this order:
+Registered in `app.js` in this order (after `app.set("trust proxy", TRUST_PROXY)`, which controls whether `req.ip` — and so the rate limiter — reads `X-Forwarded-For`; default `0` trusts no proxy):
 
 1. `helmet()` — security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)
 2. `cors(corsOptions)` — origin allowlist checked against `CORS_ORIGIN`; `credentials: true`
@@ -66,7 +66,7 @@ Registered in `app.js` in this order:
 
 Per-route middleware applied inside route files:
 
-- `authenticate` (`src/middleware/auth.middleware.js`) — verifies JWT, populates `req.user = { id, email }`
+- `authenticate` (`src/middleware/auth.middleware.js`) — verifies JWT (algorithm pinned to HS256), populates `req.user = { id, email }`
 - `validate(schema)` (`src/middleware/validate.js`) — Zod schema validation factory; replaces `req.body` with the parsed output on success
 
 `authRateLimiter` (`src/middleware/rateLimiter.js`) is not referenced inside `auth.routes.js` — it's mounted in `app.js` ahead of the auth router (see step 5 above), scoped to the `/api/v1/auth` path prefix. 10 req/min per IP; skipped when `NODE_ENV=test`.
@@ -105,6 +105,7 @@ CREATE INDEX idx_expenses_owner_date  ON expenses(owner_id, date DESC);
 CREATE INDEX idx_expenses_owner_cat   ON expenses(owner_id, category_id);
 CREATE INDEX idx_budgets_owner        ON budgets(owner_id);
 CREATE INDEX idx_refresh_tokens_hash  ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
 ```
 
 Unique constraints on `categories` and `budgets` use partial indexes (not standard UNIQUE) because `NULL != NULL` in SQL — a standard unique constraint cannot enforce uniqueness when `owner_id` or `category_id` is NULL.
@@ -141,9 +142,13 @@ errorHandler.js (central 4-arg Express handler)
     ├── ZodError                  → 400 VALIDATION_ERROR + details array
     ├── TokenExpiredError         → 401 TOKEN_EXPIRED
     ├── JsonWebTokenError         → 401 INVALID_TOKEN
-    ├── pg error 23505            → 409 CONFLICT
-    └── Unknown                  → 500 INTERNAL_SERVER_ERROR (stack hidden in prod)
+    ├── pg error 23505            → 409 CONFLICT           (unique violation)
+    ├── pg error 23503            → 422 INVALID_REFERENCE  (FK violation — backstop)
+    ├── pg error 22P02 / 22008    → 400 BAD_REQUEST        (malformed UUID / date — backstop)
+    └── Unknown                   → 500 INTERNAL_SERVER_ERROR (logged server-side; never sent to client)
 ```
+
+The pg mappings are backstops. Services validate first — e.g. `assertCategoryUsable()` in `categories.service.js` rejects a `category_id` the user can't use with `422 INVALID_CATEGORY` before any write, and the shared `isoDate()` schema (`src/utils/isoDate.js`) rejects impossible dates at validation time.
 
 ---
 

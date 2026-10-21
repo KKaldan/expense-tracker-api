@@ -54,9 +54,9 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 ### 2.1 Authentication & Session Management
 
-- User registration with email and bcrypt-hashed password (cost factor 12)
+- User registration with email and bcrypt-hashed password (cost factor 12); emails are trimmed and lowercased so addresses differing only by case are one account
 - Login issues a short-lived access token (15 min) and a long-lived `httpOnly` refresh token (7 days)
-- Single-use refresh token rotation on every `/auth/refresh` call — prevents replay attacks
+- Single-use refresh token rotation on every `/auth/refresh` call, with reuse detection: replaying an already-used token revokes that login session (token family) — see §5.4
 - Logout revokes the refresh token in the database and clears the cookie
 - JWT middleware guards all resource endpoints; token passed as `Authorization: Bearer`
 
@@ -64,7 +64,8 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 - Full CRUD: create, read (single + paginated list), partial update (`PATCH`), delete
 - List endpoint supports pagination, ISO 8601 date-range filtering, category filter, and multi-column sort
-- `date` field is `DATE` (user intent), not a server timestamp
+- `date` field is `DATE` (user intent), not a server timestamp; it must be a real calendar date
+- `category_id` must be a system category or one of the user's own — anything else is rejected with `422 INVALID_CATEGORY` (also applies to budgets)
 - Deleting a category sets `category_id = NULL` on linked expenses rather than cascade-deleting them
 
 ### 2.3 Category Management
@@ -86,6 +87,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 - **By-category** — spend and percentage share per category for a date range
 - **Monthly trend** — configurable lookback window (default 6 months) with month-over-month delta
 - All report endpoints execute a single aggregated SQL query — no N+1 patterns
+- Amounts are summed without currency conversion; reports and budget checks assume each user records expenses in a single currency
 
 ---
 
@@ -161,6 +163,7 @@ CREATE INDEX idx_expenses_owner_date  ON expenses(owner_id, date DESC);
 CREATE INDEX idx_expenses_owner_cat   ON expenses(owner_id, category_id);
 CREATE INDEX idx_budgets_owner        ON budgets(owner_id);
 CREATE INDEX idx_refresh_tokens_hash  ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_family ON refresh_tokens(family_id);
 ```
 
 ---
@@ -226,7 +229,7 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 |---|---|---|---|
 | `GET` | `/budgets` | Required | List all budgets for the authenticated user |
 | `POST` | `/budgets` | Required | Create a budget for a category + period |
-| `PATCH` | `/budgets/:id` | Required | Update budget amount or period |
+| `PATCH` | `/budgets/:id` | Required | Update budget amount, period, or category |
 | `DELETE` | `/budgets/:id` | Required | Delete a budget |
 
 ### 4.5 Reports
@@ -314,7 +317,7 @@ expense-tracker-api/
 │   │   └── asyncHandler.js        # Eliminates try/catch boilerplate in controllers
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (128 tests across 5 suites)
+│   ├── integration/               # Jest + Supertest (154 tests across 6 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/
@@ -351,10 +354,11 @@ expense-tracker-api/
 ### 6.3 Error Handling
 
 - All controllers wrapped with `asyncHandler(fn)` — uncaught rejections forwarded to Express error handler automatically
-- `new AppError(message, statusCode)` used for all expected failures: `400`, `401`, `403`, `404`, `409`
+- `new AppError(message, statusCode)` used for all expected failures: `400`, `401`, `403`, `404`, `409`, `422`
 - Central `errorHandler.js` distinguishes operational `AppError` instances from unexpected bugs
-- In production: unexpected errors return `500` with a generic message; stack traces are never exposed
+- Unexpected errors return `500` with a generic message in every environment; stack traces are only logged server-side
 - Zod validation failures mapped to `400` with structured field-level error detail
+- Known PostgreSQL errors are mapped instead of surfacing as `500`: `23505` → `409 CONFLICT`, `23503` → `422 INVALID_REFERENCE`, `22P02` / `22008` → `400 BAD_REQUEST`
 
 ### 6.4 Environment Variables
 
@@ -367,13 +371,16 @@ PORT=3000
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/expense_tracker
 
-# JWT
+# JWT — 32+ characters; startup fails on shorter values or this placeholder
 JWT_SECRET=replace-with-256-bit-random-secret
 JWT_EXPIRY=15m
 REFRESH_TOKEN_EXPIRY_DAYS=7
 
 # CORS — comma-separated list of allowed browser origins
 CORS_ORIGIN=http://localhost:3000
+
+# Reverse proxies in front of the API (0 = none) — lets rate limiting see real client IPs
+TRUST_PROXY=0
 ```
 
 ---
@@ -388,10 +395,12 @@ CORS_ORIGIN=http://localhost:3000
 - CORS configured to whitelist approved origins only
 - `Helmet.js` sets security headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
 - Refresh tokens stored as SHA-256 hashes — token theft from DB does not yield usable tokens
+- Access tokens verified with the algorithm pinned to `HS256`; `JWT_SECRET` must be at least 32 characters
+- Cross-user references are rejected in the service layer (e.g. another user's `category_id`), not just hidden on read
 
 ### 7.2 Reliability
 
-- `pg` Pool with max 10 connections; connection errors surfaced at startup, not silently at runtime
+- `pg` Pool with max 10 connections; connection errors surfaced at startup, not silently at runtime; idle-client errors are logged rather than crashing the process
 - Migrations are version-numbered (`001_`, `002_`, ...) and recorded in a `schema_migrations` table, so each is applied exactly once — safe to run on every deploy
 - Graceful shutdown: `SIGTERM` stops accepting connections, drains pg pool, then exits
 
@@ -399,7 +408,7 @@ CORS_ORIGIN=http://localhost:3000
 
 - Report endpoints use single-pass SQL aggregations — no application-level loops or N+1 queries
 - Compound indexes on `(owner_id, date)` and `(owner_id, category_id)` cover the primary access patterns
-- Pagination enforced on all list endpoints — unbounded full-table scans are not possible
+- Pagination enforced on the expenses list, the only collection that grows without bound; categories and budgets are small per user and returned whole. Every list query is scoped to the user, so no endpoint scans other users' rows
 - Connection pooling via `node-postgres` Pool — no per-request TCP connections
 
 ### 7.4 Testability

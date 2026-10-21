@@ -24,6 +24,9 @@ services:
       # Overrides whatever DATABASE_URL is in .env — inside the compose
       # network the DB is reached via the "postgres" service name, not localhost.
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-expense_tracker}
+      # env_file values override the image's ENV, so without this a .env
+      # copied from .env.example would silently run the container in development.
+      NODE_ENV: production
     ports:
       - "3000:3000"
     command: sh -c "npm run migrate && node server.js"

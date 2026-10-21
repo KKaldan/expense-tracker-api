@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (128 integration tests) |
+| Testing | Jest + Supertest (154 integration tests) |
 
 ## Prerequisites
 
@@ -74,12 +74,13 @@ Requires Docker and Docker Compose.
 
 ```bash
 cp .env.example .env
-# fill in JWT_SECRET etc. — DATABASE_URL is overridden by docker-compose for the api container
+# set JWT_SECRET to 32+ random characters — the placeholder is rejected at startup.
+# DATABASE_URL and NODE_ENV are overridden by docker-compose for the api container.
 
 docker compose up --build
 ```
 
-This starts a `postgres:16-alpine` container and the API container. The API container waits for Postgres to report healthy, runs `npm run migrate`, then starts the server on `http://localhost:3000`.
+This starts a `postgres:16-alpine` container and the API container. The API container waits for Postgres to report healthy, runs `npm run migrate`, then starts the server on `http://localhost:3000`. The container always runs with `NODE_ENV=production` (so the refresh-token cookie is `Secure`), whatever `.env` says.
 
 ---
 
@@ -116,12 +117,28 @@ Authorization: Bearer <access_token>
 { "success": false, "error": { "code": "ERROR_CODE", "message": "Description" } }
 ```
 
+**Error codes:**
+
+| Status | `code` | When |
+|---|---|---|
+| `400` | `VALIDATION_ERROR` | Body or query failed validation — adds a `details` array of `{ field, message }` |
+| `400` | `BAD_REQUEST` | A value the database can't accept, e.g. a malformed UUID in the URL |
+| `401` | `UNAUTHORIZED` · `TOKEN_EXPIRED` · `INVALID_TOKEN` | Missing, expired, or invalid credentials (always sent with a `WWW-Authenticate` header) |
+| `403` | `FORBIDDEN` | Modifying or deleting a system category |
+| `403` | `CORS_NOT_ALLOWED` | Browser origin not in `CORS_ORIGIN` |
+| `404` | `NOT_FOUND` | Resource doesn't exist *or* belongs to another user (deliberately indistinguishable), or unknown route |
+| `409` | `CONFLICT` | Duplicate email, category name, or budget |
+| `422` | `INVALID_CATEGORY` | `category_id` is neither a system category nor one of yours |
+| `422` | `INVALID_REFERENCE` | A referenced record was deleted mid-request (rare) |
+| `429` | `TOO_MANY_REQUESTS` | Auth rate limit hit (10 requests/min per IP) |
+| `500` | `INTERNAL_SERVER_ERROR` | Unexpected bug — details are logged server-side, never returned |
+
 ---
 
 ### Authentication
 
 #### `POST /auth/register`
-Create a new user account.
+Create a new user account. Emails are trimmed and lowercased on register and login, so `Jane@Example.com` and `jane@example.com` are the same account.
 
 **Request body:**
 ```json
@@ -230,6 +247,8 @@ Create a new expense.
 }
 ```
 
+`date` must be a real calendar date (`2026-02-31` is rejected). `category_id`, if given, must be a system category or one of your own — otherwise `422 INVALID_CATEGORY`.
+
 **Response `201`:** Returns the created expense object including `budget_status`.
 
 | `budget_status` | Meaning |
@@ -267,7 +286,7 @@ Paginated list with optional filters.
 ---
 
 #### `GET /expenses/:id` *(auth required)*
-Fetch a single expense by ID. Returns `404` if not found or not owned by the caller.
+Fetch a single expense by ID. Returns `404` if not found or not owned by the caller, `400` if the ID isn't a valid UUID (the same applies to every `/:id` route).
 
 ---
 
@@ -376,14 +395,14 @@ Create a budget.
 }
 ```
 
-`period` must be `"monthly"` or `"yearly"`. Only one budget per user per category per period is allowed (returns `409` on duplicate).
+`period` must be `"monthly"` or `"yearly"`. Only one budget per user per category per period is allowed (returns `409` on duplicate). `category_id` follows the same rule as on expenses (`422 INVALID_CATEGORY` if it isn't yours).
 
 **Response `201`:** Returns the created budget object.
 
 ---
 
 #### `PATCH /budgets/:id` *(auth required)*
-Update a budget. All fields optional; at least one required.
+Update a budget's `amount`, `period`, or `category_id`. All fields optional; at least one required.
 
 **Response `200`:** Returns the updated budget object.
 
@@ -401,7 +420,9 @@ Delete a budget. Returns `404` if not found.
 
 ### Reports
 
-All report endpoints accept optional `from` / `to` date parameters (`YYYY-MM-DD`). When omitted, they default to the current calendar month. `from` must be on or before `to`.
+`summary` and `by-category` accept optional `from` / `to` date parameters (`YYYY-MM-DD`). When omitted, they default to the current calendar month. `from` must be on or before `to`.
+
+Amounts are summed as stored, without currency conversion — reports (and budget checks) assume a user records expenses in one currency.
 
 #### `GET /reports/summary` *(auth required)*
 Total spend, expense count, and daily average for a date range.
@@ -503,7 +524,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (128 tests across 5 suites)
+│   ├── integration/            # Jest + Supertest tests (154 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/

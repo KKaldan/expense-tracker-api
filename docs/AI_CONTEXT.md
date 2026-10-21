@@ -36,7 +36,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–010 applied (010 = refresh token families) |
-| Tests | 128 integration tests across 5 suites — all passing |
+| Tests | 154 integration tests across 6 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
 ### ✅ Phase 7: Security & Production Hardening — Complete
@@ -49,6 +49,10 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Docker | ✅ Done | `Dockerfile` (node:24-alpine, `NODE_ENV=production`, non-root user) + `docker-compose.yml` (api + postgres:16-alpine, healthcheck-gated). `scripts/migrate.js` tracks applied migrations in a `schema_migrations` table so `npm run migrate` is safe to re-run on every container start |
 | CI/CD | ✅ Done | `.github/workflows/ci.yml` — runs the Jest suite against a `postgres:16-alpine` service container on every push/PR to `main` |
 
+### ✅ Post-Phase-7 Audit — Complete
+
+Bugs, correctness fixes, and hardening from a full review — summarised in `docs/ROADMAP.md` (Week 6); the non-obvious decisions are recorded under Key Implementation Details below.
+
 ### Next
 
 No backend phases remain on `docs/ROADMAP.md`. The only outstanding item is a frontend dashboard (React) — a separate, not-yet-started effort. Treat this backend as feature-complete unless the user introduces new scope.
@@ -59,7 +63,19 @@ No backend phases remain on `docs/ROADMAP.md`. The only outstanding item is a fr
 
 Non-obvious decisions a fresh reader must know — do not re-debate these without a good reason.
 
-**Currency:** Default is `GBP`, not USD. This is intentional — matches the target user, diverges from the spec deliberately.
+**Currency:** Default is `GBP`, not USD. This is intentional — matches the target user, diverges from the spec deliberately. Reports and budget checks sum `amount` without conversion, i.e. they assume one currency per user. Documented, not enforced.
+
+**Category ownership guard:** any write that references a category (expense create/update, budget create/update) calls `assertCategoryUsable(userId, categoryId)` from `categories.service.js` first. It allows system categories and the user's own and throws `422 INVALID_CATEGORY` otherwise — the same error for nonexistent and other-user categories, so IDs can't be probed. It lives in the categories *service* because services must not call another module's repository. The `by-category` report join is also owner-filtered as defence in depth.
+
+**Date validation:** every `YYYY-MM-DD` field uses `isoDate(label)` from `src/utils/isoDate.js` — a regex check (with `abort: true`, so a malformed value yields one error) followed by a real-calendar check. Use it for any new date field rather than a bare regex.
+
+**Zod 4 error messages:** Zod 4 silently ignores v3's `required_error` / `invalid_type_error`. Use `{ error: (iss) => iss.input === undefined ? "X is required" : "X must be a ..." }`. Check-level messages (`.min(…, { message })`) still work.
+
+**Email normalisation:** the shared `email` schema in `auth.schema.js` trims and lowercases before validating, for both register and login. The DB unique index on `users.email` is case-sensitive, so this normalisation is what prevents case-only duplicates.
+
+**pg error mapping:** `errorHandler.js` maps `23505` → 409, `23503` → 422 `INVALID_REFERENCE`, `22P02`/`22008` → 400 `BAD_REQUEST` (not `VALIDATION_ERROR`, which promises a `details` array the DB error can't provide). These are backstops — validate in schemas/services first.
+
+**JWT & proxy config:** `jwt.verify` pins `algorithms: ["HS256"]`; `env.js` requires a 32+ char `JWT_SECRET` and rejects the `.env.example` placeholder. `TRUST_PROXY` (default `0`) feeds `app.set("trust proxy")` — only raise it to match the real number of proxies, or clients can spoof their IP past the rate limiter.
 
 **Express 5 / req.query:** Express 5 makes `req.query` a computed getter that cannot be reassigned. The `validate()` middleware factory only works for `req.body`. All query-param validation is done by calling `schema.parse(req.query)` directly inside the controller (which is wrapped in `asyncHandler`, so ZodErrors propagate to the central error handler correctly).
 
