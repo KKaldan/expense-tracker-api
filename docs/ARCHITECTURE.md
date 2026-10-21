@@ -142,6 +142,8 @@ errorHandler.js (central 4-arg Express handler)
     ├── ZodError                  → 400 VALIDATION_ERROR + details array
     ├── TokenExpiredError         → 401 TOKEN_EXPIRED
     ├── JsonWebTokenError         → 401 INVALID_TOKEN
+    ├── entity.parse.failed       → 400 BAD_REQUEST        (body isn't valid JSON)
+    ├── entity.too.large          → 413 PAYLOAD_TOO_LARGE  (body over express.json's 100kb limit)
     ├── pg error 23505            → 409 CONFLICT           (unique violation)
     ├── pg error 23503            → 422 INVALID_REFERENCE  (FK violation — backstop)
     ├── pg error 22P02 / 22008    → 400 BAD_REQUEST        (malformed UUID / date — backstop)

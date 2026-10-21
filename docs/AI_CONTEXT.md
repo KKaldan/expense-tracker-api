@@ -36,7 +36,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–010 applied (010 = refresh token families) |
-| Tests | 170 integration tests across 6 suites — all passing |
+| Tests | 172 integration tests across 6 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
 ### ✅ Phase 7: Security & Production Hardening — Complete
@@ -85,7 +85,7 @@ Non-obvious decisions a fresh reader must know — do not re-debate these withou
 
 **Email normalisation:** the shared `email` schema in `auth.schema.js` trims and lowercases before validating, for both register and login. The DB unique index on `users.email` is case-sensitive, so this normalisation is what prevents case-only duplicates.
 
-**pg error mapping:** `errorHandler.js` maps `23505` → 409, `23503` → 422 `INVALID_REFERENCE`, `22P02`/`22008`/`22003`/`23514` → 400 `BAD_REQUEST` (not `VALIDATION_ERROR`, which promises a `details` array the DB error can't provide). These are backstops — validate in schemas/services first.
+**pg error mapping:** `errorHandler.js` maps `23505` → 409, `23503` → 422 `INVALID_REFERENCE`, `22P02`/`22008`/`22003`/`23514` → 400 `BAD_REQUEST` (not `VALIDATION_ERROR`, which promises a `details` array the DB error can't provide). These are backstops — validate in schemas/services first. Body-parser errors from `express.json()` (identified by `err.type`) map to `400 BAD_REQUEST` (invalid JSON) and `413 PAYLOAD_TOO_LARGE` — they're thrown before any route runs, so without this branch they'd be 500s.
 
 **JWT & proxy config:** `jwt.verify` pins `algorithms: ["HS256"]`; `env.js` requires a 32+ char `JWT_SECRET` and rejects the `.env.example` placeholder. `TRUST_PROXY` (default `0`) feeds `app.set("trust proxy")` — only raise it to match the real number of proxies, or clients can spoof their IP past the rate limiter.
 

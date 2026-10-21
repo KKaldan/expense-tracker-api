@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (170 integration tests) |
+| Testing | Jest + Supertest (172 integration tests) |
 
 ## Prerequisites
 
@@ -122,12 +122,13 @@ Authorization: Bearer <access_token>
 | Status | `code` | When |
 |---|---|---|
 | `400` | `VALIDATION_ERROR` | Body or query failed validation — adds a `details` array of `{ field, message }` |
-| `400` | `BAD_REQUEST` | A value the database can't accept, e.g. a malformed UUID in the URL |
+| `400` | `BAD_REQUEST` | Request body isn't valid JSON, or a value the database can't accept (e.g. a malformed UUID in the URL) |
 | `401` | `UNAUTHORIZED` · `TOKEN_EXPIRED` · `INVALID_TOKEN` | Missing, expired, or invalid credentials (always sent with a `WWW-Authenticate` header) |
 | `403` | `FORBIDDEN` | Modifying or deleting a system category |
 | `403` | `CORS_NOT_ALLOWED` | Browser origin not in `CORS_ORIGIN` |
 | `404` | `NOT_FOUND` | Resource doesn't exist *or* belongs to another user (deliberately indistinguishable), or unknown route |
 | `409` | `CONFLICT` | Duplicate email, category name, or budget |
+| `413` | `PAYLOAD_TOO_LARGE` | Request body over 100kb |
 | `422` | `INVALID_CATEGORY` | `category_id` is neither a system category nor one of yours |
 | `422` | `INVALID_REFERENCE` | A referenced record was deleted mid-request (rare) |
 | `429` | `TOO_MANY_REQUESTS` | Auth rate limit hit (10 requests/min per IP) |
@@ -542,7 +543,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (170 tests across 6 suites)
+│   ├── integration/            # Jest + Supertest tests (172 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/

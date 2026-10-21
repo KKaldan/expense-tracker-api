@@ -4,7 +4,7 @@
  *
  * Handles three categories:
  *   1. AppError (isOperational) — expected failures thrown by services/controllers
- *   2. Known third-party errors — Zod validation, JWT errors, pg constraint/input errors
+ *   2. Known third-party errors — Zod validation, JWT errors, body parsing, pg constraint/input errors
  *   3. Unexpected bugs — log full error, return generic 500
  */
 function errorHandler(err, _req, res, _next) {
@@ -61,7 +61,22 @@ function errorHandler(err, _req, res, _next) {
       });
   }
 
-  // --- 2c. PostgreSQL unique constraint violation ---
+  // --- 2c. Request body errors (thrown by express.json before any route runs) ---
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      error: { code: "BAD_REQUEST", message: "Request body is not valid JSON" },
+    });
+  }
+
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      error: { code: "PAYLOAD_TOO_LARGE", message: "Request body is too large" },
+    });
+  }
+
+  // --- 2d. PostgreSQL unique constraint violation ---
   if (err.code === "23505") {
     return res.status(409).json({
       success: false,
@@ -69,7 +84,7 @@ function errorHandler(err, _req, res, _next) {
     });
   }
 
-  // --- 2d. PostgreSQL foreign key violation ---
+  // --- 2e. PostgreSQL foreign key violation ---
   // Services validate references up front; this is the backstop for a
   // referenced row being deleted between that check and the write.
   if (err.code === "23503") {
@@ -79,7 +94,7 @@ function errorHandler(err, _req, res, _next) {
     });
   }
 
-  // --- 2e. PostgreSQL invalid input value ---
+  // --- 2f. PostgreSQL invalid input value ---
   // 22P02: value can't be cast to the column type (e.g. "abc" as a UUID route param)
   // 22008: date out of range — Zod schemas catch this first; backstop only
   // 22003: numeric out of range (e.g. amount too large for NUMERIC(12,2)) — backstop only

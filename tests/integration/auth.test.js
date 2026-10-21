@@ -449,3 +449,32 @@ describe("GET /api/v1/auth/me", () => {
   });
 
 });
+
+// ---------------------------------------------------------------------------
+// Request body parsing (express.json, app-wide — exercised via /auth/login)
+// ---------------------------------------------------------------------------
+
+describe("Malformed request bodies", () => {
+
+  it("returns 400 BAD_REQUEST for a body that isn't valid JSON", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .set("Content-Type", "application/json")
+      .send("{bad json");
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("BAD_REQUEST");
+  });
+
+  it("returns 413 PAYLOAD_TOO_LARGE for a body over the 100kb limit", async () => {
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: DEFAULT_USER.email, password: "a".repeat(200 * 1024) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("PAYLOAD_TOO_LARGE");
+  });
+
+});

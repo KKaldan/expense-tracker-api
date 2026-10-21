@@ -325,7 +325,7 @@ expense-tracker-api/
 │   │   └── isoDate.js             # Shared Zod schema for real calendar dates
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (170 tests across 6 suites)
+│   ├── integration/               # Jest + Supertest (172 tests across 6 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/
@@ -366,6 +366,7 @@ expense-tracker-api/
 - Central `errorHandler.js` distinguishes operational `AppError` instances from unexpected bugs
 - Unexpected errors return `500` with a generic message in every environment; stack traces are only logged server-side
 - Zod validation failures mapped to `400` with structured field-level error detail
+- Request bodies that aren't valid JSON return `400 BAD_REQUEST`; bodies over 100kb return `413 PAYLOAD_TOO_LARGE`
 - Known PostgreSQL errors are mapped instead of surfacing as `500`: `23505` → `409 CONFLICT`, `23503` → `422 INVALID_REFERENCE`, `22P02` / `22008` / `22003` / `23514` → `400 BAD_REQUEST`
 
 ### 6.4 Environment Variables
