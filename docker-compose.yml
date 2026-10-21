@@ -8,7 +8,10 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      # -h localhost tests a TCP connection, as the api makes. Without it,
+      # pg_isready uses the Unix socket, which the temporary first-boot init
+      # server accepts — so the check could pass before Postgres is reachable.
+      test: ["CMD-SHELL", "pg_isready -h localhost -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 10
