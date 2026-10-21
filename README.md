@@ -38,8 +38,10 @@ Open `.env` and fill in your values:
 
 ```env
 DATABASE_URL=postgresql://your_user:your_password@localhost:5432/expense_tracker
-JWT_SECRET=replace-with-a-long-random-string
+JWT_SECRET=replace-with-256-bit-random-secret
 ```
+
+Replace `JWT_SECRET` with 32+ random characters (e.g. `openssl rand -hex 32`) — startup fails on shorter values or this placeholder.
 
 **3. Create the database**
 
