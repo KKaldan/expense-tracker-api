@@ -54,7 +54,8 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 ### 2.1 Authentication & Session Management
 
-- User registration with email and bcrypt-hashed password (cost factor 12); emails are trimmed and lowercased so addresses differing only by case are one account
+- User registration with email and bcrypt-hashed password (cost factor 12); emails are trimmed and lowercased so addresses differing only by case are one account; names are trimmed
+- Passwords are 8 characters to 72 bytes — bcrypt ignores anything past 72 bytes, so longer passwords are rejected at registration rather than silently truncated
 - Login issues a short-lived access token (15 min) and a long-lived `httpOnly` refresh token (7 days)
 - Single-use refresh token rotation on every `/auth/refresh` call, with reuse detection: replaying an already-used token revokes that login session (token family) — see §5.4
 - Logout revokes the refresh token in the database and clears the cookie
@@ -65,8 +66,10 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 - Full CRUD: create, read (single + paginated list), partial update (`PATCH`), delete
 - List endpoint supports pagination, ISO 8601 date-range filtering, category filter, and multi-column sort
 - `amount` must fit `NUMERIC(12,2)` — positive, at most 2 decimal places, at most `9999999999.99` — and is rejected with `400` otherwise, never rounded (also applies to budgets)
+- `currency` must be three letters (upper-cased on write); defaults to `GBP`
 - `date` field is `DATE` (user intent), not a server timestamp; it must be a real calendar date
 - List results always end with `id` as a sort tiebreaker, so pagination is stable when rows tie on the requested sort
+- Invalid query parameters (`page`, `limit`, and report `months`) are rejected with `400`, never silently replaced by defaults
 - `category_id` must be a system category or one of the user's own — anything else is rejected with `422 INVALID_CATEGORY` (also applies to budgets)
 - Deleting a category sets `category_id = NULL` on linked expenses rather than cascade-deleting them
 
@@ -74,7 +77,7 @@ ExpenseTracker is a SaaS-style backend REST API enabling individual users to rec
 
 - System default categories (`owner_id = NULL`) are visible to all users without duplication
 - Users can create, rename, and delete their own custom categories
-- Partial unique indexes prevent duplicate category names — one across system categories, one per user
+- Partial unique indexes prevent duplicate category names — one across system categories, one per user; names are trimmed first, so surrounding whitespace can't create a near-duplicate
 
 ### 2.4 Budget Controls
 
@@ -322,7 +325,7 @@ expense-tracker-api/
 │   │   └── isoDate.js             # Shared Zod schema for real calendar dates
 │   └── app.js                     # Express wiring — no listen() call
 ├── tests/
-│   ├── integration/               # Jest + Supertest (159 tests across 6 suites)
+│   ├── integration/               # Jest + Supertest (170 tests across 6 suites)
 │   ├── helpers/                   # Shared test utilities
 │   └── setup/                     # globalSetup — resets the schema and runs migrations
 ├── migrations/

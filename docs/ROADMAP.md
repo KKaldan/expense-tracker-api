@@ -85,17 +85,20 @@ A full review of the codebase, probing the API with hostile inputs as well as re
 **Correctness**
 - Zod 4 had silently dropped the `required_error` / `invalid_type_error` options — custom messages restored via the `error` option
 - Emails trimmed and lowercased on register/login
-- `updateExpense` no longer crashes if the row disappears between check and write
+- `updateExpense` no longer crashes if the row disappears between check and write; budget and category updates/deletes now enforce ownership in the write itself too
+- Invalid `page`, `limit`, and `months` return `400` instead of silently falling back to defaults
+- Category and user names trimmed; currency must be three letters
 
 **Hardening**
 - JWT verification pinned to HS256; `JWT_SECRET` must be 32+ characters
+- Registration passwords capped at bcrypt's 72-byte limit instead of being silently truncated
 - `TRUST_PROXY` setting so rate limiting sees real client IPs behind a proxy
 - pg pool idle-client errors logged instead of crashing the process
 - Expired refresh tokens pruned on login
 - Refresh-token reuse detection with token families (migration 010) — a replayed token revokes that one session
 - Docker Compose forces `NODE_ENV=production`
 
-Integration tests: 159 across 6 suites — all passing
+Integration tests: 170 across 6 suites — all passing
 
 ---
 

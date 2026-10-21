@@ -36,7 +36,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
 | Migrations | 001–010 applied (010 = refresh token families) |
-| Tests | 159 integration tests across 6 suites — all passing |
+| Tests | 170 integration tests across 6 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
 ### ✅ Phase 7: Security & Production Hardening — Complete
@@ -72,6 +72,12 @@ Non-obvious decisions a fresh reader must know — do not re-debate these withou
 **Amount validation:** every money field uses `amount()` from `src/utils/amount.js` — positive, `multipleOf(0.01)`, max `9999999999.99`, matching `NUMERIC(12,2)`. Without it Postgres rounds `0.001` to `0.00` (failing `CHECK amount > 0`) and overflows on `1e10`, both of which were 500s. Over-precise values are rejected, not rounded — so a JS client sending `0.1 + 0.2` gets a 400, which is deliberate.
 
 **UTC month boundaries:** "current month" (report defaults, the monthly-trend window) is computed in JS with UTC getters. Never use `CURRENT_DATE` / `NOW()` for month boundaries in SQL — they follow the DB session time zone (the dev DB is `Europe/London`), which disagreed with the JS side near month boundaries and gave monthly-trend an extra month.
+
+**Ownership in the write, not a prior read:** updates and deletes of expenses, budgets, and categories filter on `id AND owner_id` in the `UPDATE`/`DELETE` itself; no row back → `404`. Don't reintroduce a read-check-then-write — the row can vanish in between (→ `200` with `data: null`). Categories are the one exception needing a lookup: `owner_id = $user` never matches a system category, so when the write matches nothing, `throwUnwritableCategory()` reads the row to choose `403` (system) vs `404` (missing / another user's). The lookup only runs on the failure path.
+
+**Password length:** register enforces 8 chars min and 72 *bytes* max (`Buffer.byteLength`) — bcrypt silently ignores everything past 72 bytes. Login deliberately has no max: anyone who registered a longer password before the limit still logs in, because bcrypt truncates consistently on hash and compare.
+
+**Query params fail loudly:** `page`, `limit`, `months` use `z.coerce.number()...default(n)` — missing → default, invalid → `400`. Don't use `.catch()`; it silently masked client bugs like `limit=500` → 20. (`.default()` does work with `z.coerce` in Zod 4 — an old comment claiming otherwise was wrong.)
 
 **Stable pagination:** `buildOrderBy()` always appends `id` as a final tiebreaker. Without a unique last key, rows that tie on every sort column have no defined order and LIMIT/OFFSET pages can repeat or skip them.
 

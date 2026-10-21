@@ -11,7 +11,7 @@ A SaaS-style personal expense tracking backend built with Node.js, Express, and 
 | Database | PostgreSQL 16 |
 | Authentication | JSON Web Tokens (JWT) |
 | Validation | Zod |
-| Testing | Jest + Supertest (159 integration tests) |
+| Testing | Jest + Supertest (170 integration tests) |
 
 ## Prerequisites
 
@@ -150,7 +150,7 @@ Liveness probe, mounted at the root (not under `/api/v1`) and unauthenticated.
 ### Authentication
 
 #### `POST /auth/register`
-Create a new user account. Emails are trimmed and lowercased on register and login, so `Jane@Example.com` and `jane@example.com` are the same account.
+Create a new user account. Emails are trimmed and lowercased on register and login, so `Jane@Example.com` and `jane@example.com` are the same account. `name` is trimmed and must be at least 2 characters. `password` must be at least 8 characters and at most 72 bytes (bcrypt's limit — emoji and other multi-byte characters count for more than one).
 
 **Request body:**
 ```json
@@ -259,7 +259,7 @@ Create a new expense.
 }
 ```
 
-`amount` must be greater than 0, have at most 2 decimal places, and be no more than `9999999999.99`. `date` must be a real calendar date (`2026-02-31` is rejected). `category_id`, if given, must be a system category or one of your own — otherwise `422 INVALID_CATEGORY`.
+`amount` must be greater than 0, have at most 2 decimal places, and be no more than `9999999999.99`. `currency` is optional (default `GBP`), must be three letters, and is stored upper-cased. `date` must be a real calendar date (`2026-02-31` is rejected). `category_id`, if given, must be a system category or one of your own — otherwise `422 INVALID_CATEGORY`.
 
 **Response `201`:** Returns the created expense object including `budget_status`.
 
@@ -285,6 +285,8 @@ Paginated list with optional filters.
 | `to` | `YYYY-MM-DD` | — | End of date range |
 | `category_id` | UUID | — | Filter by category |
 | `sort` | string | `date:desc` | e.g. `date:desc,amount:asc` |
+
+Omitted parameters take their defaults; an invalid `page` or `limit` (e.g. `limit=500`, `page=0`) returns `400 VALIDATION_ERROR` rather than being silently replaced.
 
 **Response `200`:**
 ```json
@@ -359,7 +361,7 @@ Create a custom category.
 }
 ```
 
-`icon` and `color` are optional. `color` must be a valid hex code (e.g. `#FF5733`).
+`name` is trimmed, so `"Hobbies "` is the same name as `"Hobbies"` (`409` if it already exists). `icon` and `color` are optional. `color` must be a valid hex code (e.g. `#FF5733`).
 
 **Response `201`:** Returns the created category object.
 
@@ -484,7 +486,7 @@ Month-by-month totals for a configurable lookback window ending with the current
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `months` | integer | `6` | Lookback window in months (1–24) |
+| `months` | integer | `6` | Lookback window in months (1–24); out-of-range or non-numeric values return `400` |
 
 **Response `200`:**
 ```json
@@ -540,7 +542,7 @@ expense-tracker-api/
 │   ├── 009_users_timestamps_not_null.sql
 │   └── 010_add_refresh_token_families.sql
 ├── tests/
-│   ├── integration/            # Jest + Supertest tests (159 tests across 6 suites)
+│   ├── integration/            # Jest + Supertest tests (170 tests across 6 suites)
 │   ├── helpers/                # Shared test utilities
 │   └── setup/                  # globalSetup — resets the schema and runs migrations
 ├── docs/
