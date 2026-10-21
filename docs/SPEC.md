@@ -110,6 +110,7 @@ All primary keys are `UUID` (`gen_random_uuid()`). Mutable tables carry both `cr
 |---|---|---|---|
 | `id` | `UUID` | NO | Primary key |
 | `user_id` | `UUID` | NO | FK → `users(id)` ON DELETE CASCADE |
+| `family_id` | `UUID` | NO | Shared by every token rotated from one login; indexed. Reuse detection revokes by family |
 | `token_hash` | `TEXT` | NO | SHA-256 of the raw token — raw value never stored |
 | `expires_at` | `TIMESTAMPTZ` | NO | `NOW() + 7 days` at issue time |
 | `revoked` | `BOOLEAN` | NO | `DEFAULT FALSE`; set `TRUE` on rotation or logout |
@@ -268,9 +269,11 @@ Authenticated endpoints require `Authorization: Bearer <access_token>`.
 
 1. Client `POST`s to `/auth/refresh` — browser sends cookie automatically
 2. Server reads cookie and hashes the raw token
-3. A single conditional `UPDATE` sets `revoked = TRUE` only where the hash matches, `revoked = FALSE` and `expires_at > NOW()` — validation and revocation are one atomic step, so concurrent requests cannot reuse the same token
-4. If no row was updated → `401`; the owning user must also still exist
-5. New access token and new refresh token issued; cookie replaced
+3. One SQL statement revokes the old token (only where the hash matches, `revoked = FALSE` and `expires_at > NOW()`) and inserts its successor in the same family — concurrent requests cannot both consume the same token, and the successor exists the instant the old token is revoked
+4. If no row was consumed: when the token exists, is revoked, and has not expired, it is being **replayed** — every live token in its family is revoked (that session ends; the user's other sessions are untouched) and a warning is logged. Either way the response is `401`
+5. Otherwise a new access token is issued and the cookie replaced with the successor
+
+Each login starts a new family. Clients must not run refreshes concurrently (e.g. coordinate across tabs with the Web Locks API): a concurrent duplicate looks identical to a replay and ends the session.
 
 ### 5.5 `authenticate` Middleware
 
@@ -323,7 +326,8 @@ expense-tracker-api/
 │   ├── 006_create_budgets.sql
 │   ├── 007_add_budgets_unique_constraints.sql
 │   ├── 008_add_users_updated_at_trigger.sql
-│   └── 009_users_timestamps_not_null.sql
+│   ├── 009_users_timestamps_not_null.sql
+│   └── 010_add_refresh_token_families.sql
 ├── scripts/
 │   └── migrate.js                 # Applies pending migrations; tracked in schema_migrations
 ├── docs/

@@ -174,6 +174,8 @@ Authenticate and receive an access token. A refresh token is also set as an `htt
 #### `POST /auth/refresh`
 Exchange the `refresh_token` cookie for a new access token. The refresh token is single-use: it is revoked and a new one is set in its place. Returns `401` if the cookie is missing, invalid, expired, or already used.
 
+Presenting an already-used token is treated as theft: that login session is revoked entirely (other devices stay signed in). Clients should therefore never run two refreshes at once — coordinate across tabs, e.g. with the Web Locks API.
+
 **Response `200`:**
 ```json
 {
@@ -498,7 +500,8 @@ expense-tracker-api/
 │   ├── 006_create_budgets.sql
 │   ├── 007_add_budgets_unique_constraints.sql
 │   ├── 008_add_users_updated_at_trigger.sql
-│   └── 009_users_timestamps_not_null.sql
+│   ├── 009_users_timestamps_not_null.sql
+│   └── 010_add_refresh_token_families.sql
 ├── tests/
 │   ├── integration/            # Jest + Supertest tests (128 tests across 5 suites)
 │   ├── helpers/                # Shared test utilities

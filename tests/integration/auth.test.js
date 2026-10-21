@@ -146,9 +146,9 @@ describe("POST /api/v1/auth/login", () => {
   it("deletes the user's expired refresh tokens but keeps revoked unexpired ones", async () => {
     const { rows: [user] } = await db.query("SELECT id FROM users WHERE email = $1", [DEFAULT_USER.email]);
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, revoked) VALUES
-         ($1, 'expired-hash', NOW() - INTERVAL '1 day', FALSE),
-         ($1, 'revoked-hash', NOW() + INTERVAL '1 day', TRUE)`,
+      `INSERT INTO refresh_tokens (user_id, family_id, token_hash, expires_at, revoked) VALUES
+         ($1, gen_random_uuid(), 'expired-hash', NOW() - INTERVAL '1 day', FALSE),
+         ($1, gen_random_uuid(), 'revoked-hash', NOW() + INTERVAL '1 day', TRUE)`,
       [user.id]
     );
 
@@ -177,8 +177,18 @@ describe("POST /api/v1/auth/login", () => {
 
 describe("POST /api/v1/auth/refresh", () => {
 
+  function refreshCookie(res) {
+    return res.headers["set-cookie"].find((c) => c.startsWith("refresh_token="));
+  }
+
   beforeEach(async () => {
     await registerUser();
+    // Reuse detection logs a warning; keep test output clean and let tests assert on it.
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    console.warn.mockRestore();
   });
 
   it("returns 200 with a new access token and rotates the refresh token cookie", async () => {
@@ -244,6 +254,42 @@ describe("POST /api/v1/auth/refresh", () => {
 
     const successes = results.filter((r) => r.status === 200);
     expect(successes).toHaveLength(1);
+
+    // The losers are replays of a rotated token, so reuse detection must
+    // also revoke the token the winner was just issued. Note: this only
+    // catches a non-atomic rotation (successor inserted in a separate query)
+    // when a loser lands inside that gap, which in-process requests rarely
+    // do — the real guarantee is the single-statement rotateRefreshToken().
+    const winnerCookie = refreshCookie(successes[0]);
+    const followUp = await request(app).post("/api/v1/auth/refresh").set("Cookie", winnerCookie);
+    expect(followUp.status).toBe(401);
+  });
+
+  it("replaying a rotated token revokes the token it was rotated into", async () => {
+    const original = refreshCookie(await loginUser());
+    const rotated = refreshCookie(
+      await request(app).post("/api/v1/auth/refresh").set("Cookie", original)
+    );
+
+    // Attacker (or anyone) replays the already-used original token
+    const replay = await request(app).post("/api/v1/auth/refresh").set("Cookie", original);
+    expect(replay.status).toBe(401);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("reuse detected"));
+
+    // The legitimate holder's current token is now dead too
+    const res = await request(app).post("/api/v1/auth/refresh").set("Cookie", rotated);
+    expect(res.status).toBe(401);
+  });
+
+  it("reuse detection leaves the user's other sessions untouched", async () => {
+    const laptop = refreshCookie(await loginUser());
+    const phone = refreshCookie(await loginUser());
+
+    await request(app).post("/api/v1/auth/refresh").set("Cookie", laptop);
+    await request(app).post("/api/v1/auth/refresh").set("Cookie", laptop); // replay → laptop session revoked
+
+    const res = await request(app).post("/api/v1/auth/refresh").set("Cookie", phone);
+    expect(res.status).toBe(200);
   });
 
 });

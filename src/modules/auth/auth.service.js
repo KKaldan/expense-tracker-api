@@ -67,7 +67,13 @@ async function loginUser({ email, password }) {
   await authRepository.deleteExpiredRefreshTokens(user.id);
 
   const rawRefreshToken = generateRefreshToken();
-  await authRepository.storeRefreshToken(user.id, hashToken(rawRefreshToken), refreshTokenExpiry());
+  // Each login starts a new token family (one session/device).
+  await authRepository.storeRefreshToken(
+    user.id,
+    crypto.randomUUID(),
+    hashToken(rawRefreshToken),
+    refreshTokenExpiry()
+  );
 
   return {
     token: accessToken,
@@ -82,10 +88,20 @@ async function loginUser({ email, password }) {
 
 async function refreshAccessToken(rawRefreshToken) {
 
-  // Single-use: validation and revocation happen atomically in one query.
-  const userId = await authRepository.consumeRefreshToken(hashToken(rawRefreshToken));
+  const oldHash = hashToken(rawRefreshToken);
+  const newRawToken = generateRefreshToken();
+
+  // Single-use: the old token is consumed and its successor issued atomically.
+  const userId = await authRepository.rotateRefreshToken(oldHash, hashToken(newRawToken), refreshTokenExpiry());
 
   if (!userId) {
+    // Reuse detection: a revoked-but-unexpired token means a copy exists.
+    // We can't tell the thief from the real user, so end that session for
+    // both. Other sessions (other families) are untouched.
+    const compromisedUserId = await authRepository.revokeFamilyOfReplayedToken(oldHash);
+    if (compromisedUserId) {
+      console.warn(`Refresh token reuse detected for user ${compromisedUserId} — session revoked`);
+    }
     throw AppError.unauthorized("Invalid or expired refresh token");
   }
 
@@ -94,12 +110,7 @@ async function refreshAccessToken(rawRefreshToken) {
     throw AppError.unauthorized("User not found");
   }
 
-  const accessToken = signAccessToken(user);
-
-  const newRawToken = generateRefreshToken();
-  await authRepository.storeRefreshToken(user.id, hashToken(newRawToken), refreshTokenExpiry());
-
-  return { token: accessToken, refreshToken: newRawToken };
+  return { token: signAccessToken(user), refreshToken: newRawToken };
 }
 
 async function logout(rawRefreshToken) {

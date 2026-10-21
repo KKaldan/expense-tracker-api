@@ -35,7 +35,7 @@ Phases 1–7 are complete. The codebase is clean, tested, and reviewed.
 | Expenses | Full CRUD — pagination, date-range filter, category filter, multi-column sort, budget_status |
 | Budgets | Full CRUD + non-blocking budget-check hook on expense create/update |
 | Reports | `summary`, `by-category`, `monthly-trend` — single-pass SQL aggregations, no repository layer |
-| Migrations | 001–009 applied (009 = users timestamps NOT NULL) |
+| Migrations | 001–010 applied (010 = refresh token families) |
 | Tests | 128 integration tests across 5 suites — all passing |
 | Spec compliance | `WWW-Authenticate` header on all 401s; `from <= to` validated on `GET /expenses`; error `path` set on date-range refines; `clearCookie` options derived from shared constant |
 
@@ -81,7 +81,7 @@ Non-obvious decisions a fresh reader must know — do not re-debate these withou
 
 **Rate limiter test skip:** `authRateLimiter` (`src/middleware/rateLimiter.js`) checks `env.NODE_ENV === "test"` and no-ops via the `skip` option. The integration suite legitimately calls `/auth/register` and `/auth/login` far more than 10 times/min from one IP; without the skip, the suite would fail on its own traffic, not a real bug.
 
-**Atomic refresh-token rotation:** `consumeRefreshToken()` in `auth.repository.js` validates and revokes in a single `UPDATE ... WHERE revoked = FALSE AND expires_at > NOW() RETURNING user_id`. Do not split this back into a SELECT followed by an UPDATE — that reintroduces a race where concurrent requests reuse the same token. A test in `auth.test.js` fires 10 simultaneous refreshes and expects exactly one success.
+**Atomic refresh-token rotation + reuse detection:** `rotateRefreshToken()` in `auth.repository.js` revokes the old token and inserts its successor (same `family_id`) in one statement — a CTE `UPDATE ... RETURNING` feeding an `INSERT`. If rotation fails, `revokeFamilyOfReplayedToken()` checks whether the token was revoked-but-unexpired (a replay) and, if so, revokes every live token in its family. Do not split rotation into separate queries: (1) a SELECT-then-UPDATE lets concurrent requests reuse a token; (2) an UPDATE-then-INSERT lets a concurrent replay revoke the family before the successor exists, so the successor survives. (2) was verified empirically — the concurrency test in `auth.test.js` only catches it when a request lands in the gap, so it is not a reliable guard on its own. Families are per login, so a replay ends one session, not all of the user's devices. No grace window, by design. Clients must serialise refreshes.
 
 **Migration tracking:** `scripts/migrate.js` records each applied file in a `schema_migrations` table and skips rows already present. This is what actually makes migrations safe to re-run (the raw SQL files themselves are not idempotent — e.g. `CREATE TABLE` without `IF NOT EXISTS`). Both `npm run migrate` and the `docker-compose.yml` `api` service command run this before starting the server. The Jest suite does not use this script — `tests/setup/globalSetup.js` runs `DROP SCHEMA public CASCADE` and re-applies every migration in filename order instead. It refuses to run unless the database name ends in `_test`, as a guard against wiping a real database.
 

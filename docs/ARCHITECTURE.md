@@ -122,7 +122,9 @@ Two-token strategy — short-lived access tokens paired with rotating refresh to
 
 **Refresh token security:** raw token generated via `crypto.randomBytes(64)`, SHA-256 hashed before DB storage. A database breach yields only hashes — no usable tokens.
 
-**Single-use rotation:** every `POST /auth/refresh` immediately revokes the old token and issues a new one. If a stolen token is used first, the legitimate user's next refresh attempt fails (token already revoked). Validation and revocation happen in one conditional `UPDATE ... RETURNING`, so even simultaneous requests with the same token cannot both succeed.
+**Single-use rotation:** every `POST /auth/refresh` revokes the old token and issues a successor in one SQL statement (`UPDATE ... RETURNING` feeding an `INSERT`), so even simultaneous requests with the same token cannot both succeed.
+
+**Reuse detection (token families):** every token rotated from one login shares a `family_id`. If a revoked-but-unexpired token is presented, a copy of it exists — the server can't tell thief from owner, so it revokes the whole family. Whoever holds the current token is logged out of that session; the user's other sessions (other families) are untouched. Because the successor is inserted in the same statement that revokes its parent, a concurrent replay can never revoke the family before the successor exists. Trade-off: a client that fires two refreshes at once looks like a replay and loses the session — clients must serialise refreshes (e.g. Web Locks API across tabs). No grace window is used, as it would reopen the window an attacker needs.
 
 `req.user` shape after `authenticate` middleware: `{ id, email, iat, exp }`
 
